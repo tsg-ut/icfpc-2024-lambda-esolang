@@ -1,0 +1,9 @@
+(executable
+ (name main)
+ (public_name lambda_esolang)
+ ; (flags -w -33)
+ (libraries str))
+
+(ocamllex lexer)
+
+(ocamlyacc parser)
