@@ -1,3 +1,4 @@
+open Lambda_esolang
 open Interpreter
 module L = Library
 

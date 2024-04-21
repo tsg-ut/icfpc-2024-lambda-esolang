@@ -1,0 +1,3 @@
+(test
+ (name main)
+ (libraries lambda_esolang alcotest))

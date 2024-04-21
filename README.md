@@ -7,6 +7,6 @@
 ```
 $ cat i
 d. ($cons *65 ($cons *256 (x. x)))
-$ dune exec ./src/main.exe < i > o.lazy
+$ dune exec ./bin/main.exe < i > o.lazy
 ```
 `o.lazy` is a LazyK code that prints 'c'.
