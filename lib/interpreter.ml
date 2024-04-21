@@ -49,8 +49,29 @@ let pp_combinator pp_var =
   in
   aux
 
+let size_of_pp_combinator m =
+  let rec aux = function
+    | CVar v -> 1
+    | CApp _ as x -> (
+        let combs : 'a combinator list =
+          let rec aux d =
+            match d with CVar _ -> [ d ] | CApp (x, y) -> y :: aux x
+          in
+          aux x
+        in
+        match combs with
+        | [] | _ :: [] -> assert false
+        | [ c1; c2 ] -> aux c1 + aux c2 + 1
+        | _ :: _ :: _ -> List.fold_left ( + ) 2 (List.map aux combs))
+  in
+  aux
+
 let pp_combinators fmt c = Format.fprintf fmt "%s" (combinators_to_str c)
 let combinator_to_str m = Format.asprintf "%a" (pp_combinator pp_combinators) m
+
+let pp_ski_str fmt v =
+  Format.fprintf fmt "%s"
+  @@ match v with `S -> "S" | `K -> "K" | `I -> "I" | `Str s -> s
 
 let rec is_free m v =
   match m with
@@ -75,13 +96,13 @@ let ski (m : string lambda) : combinators combinator =
   in
   let com s = Var (`Com s) in
   let rec aux m =
-    Format.eprintf "Converting: %a\n"
-      (pp_lambda (fun fmt v ->
-           let s =
-             match v with `Com s -> combinators_to_str s | `Str s -> s
-           in
-           Format.fprintf fmt "%s" s))
-      m;
+    (* Format.eprintf "Converting: %a\n"
+       (pp_lambda (fun fmt v ->
+            let s =
+              match v with `Com s -> combinators_to_str s | `Str s -> s
+            in
+            Format.fprintf fmt "%s" s))
+       m; *)
     match m with
     | Var _ -> m
     | Abs (v, m) when is_free m v -> App (com `K, aux m)
@@ -119,38 +140,18 @@ let reduce_comb m =
         let b = CApp (aux m, aux n) in
         if a = b then b else aux b
   in
-  let pp_var fmt v =
-    Format.fprintf fmt "%s"
-    @@ match v with `S -> "S" | `K -> "K" | `I -> "I" | `Str s -> s
-  in
-  let _pp = pp_combinator pp_var in
+  let _pp = pp_combinator pp_ski_str in
   try
     let tm = aux m in
     (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)
-    tm
+    Some tm
   with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
-                    m
+                    None
 
 let rec size = function
   | Var _ -> 1
   | Abs (_, m) -> size m + 1
   | App (m, n) -> size m + size n + 1
-
-let rec simplify (m : combinators combinator) =
-  let rec aux :
-      combinators combinator -> [ `S | `K | `I | `Str of string ] combinator =
-    function
-    | CVar ((`S | `K | `I) as v) -> CVar v
-    | CApp (m, n) -> CApp (aux m, aux n)
-  in
-  let cm = aux m in
-  let n = CApp (CApp (cm, CVar (`Str "X")), CVar (`Str "Y")) in
-  if reduce_comb n = CVar (`Str "X") then CVar `K
-  else
-    let n = CApp (cm, CVar (`Str "X")) in
-    if reduce_comb n = CVar (`Str "X") then CVar `I
-    else
-      match m with CVar _ -> m | CApp (m, n) -> CApp (simplify m, simplify n)
 
 (* #2進数で実装したほうがいいらしい
    #32bit固定のほうが楽らしい
