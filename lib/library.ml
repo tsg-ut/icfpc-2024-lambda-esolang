@@ -1,4 +1,11 @@
-open Interpreter
+open Syntax
+
+let library = ref ([] : (string * string lambda) list)
+
+let register_library name m =
+  Format.eprintf "----------------Register %s\n" name;
+  flush_all ();
+  library := (name, m) :: !library
 
 let s2lam s =
   let lexbuf = Lexing.from_string s in

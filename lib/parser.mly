@@ -1,5 +1,5 @@
 %{
-  open Interpreter
+  open Syntax
 %}
 
 %token <string> IDENT COMBINATOR DOLLAR
@@ -9,7 +9,7 @@
 %right ARROW
 
 %start main
-%type <string Interpreter.lambda> main
+%type <string Syntax.lambda> main
 %%
 main:
 | expr EOF { $1 }
@@ -30,12 +30,7 @@ term:
 | IDENT { Var $1 }
 | PUTC { Var ("." ^ String.make 1 $1) }
 | COMBINATOR { Var $1 }
-| ASTER NUM { n2charchnum $2 }
-| DOLLAR {
-    try
-      List.assoc $1 (!library)
-    with
-      | Not_found -> failwith ("Undefined variable $" ^ $1)
-  }
+| ASTER NUM { Var ("*" ^ string_of_int $2) }
+| DOLLAR { Var ("$" ^ $1) }
 | LPAR expr RPAR { $2 }
 ;
