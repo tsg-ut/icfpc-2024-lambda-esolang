@@ -17,7 +17,23 @@ let pp_lambda pp_var =
   in
   aux
 
-let combinators_to_str = function `S -> "S" | `K -> "K" | `I -> "I" | `Z -> "0"
+let n2bin n =
+  assert (n >= 2);
+  let rec aux n =
+    let b = n mod 2 in
+    if n <= 1 then [ b ] else aux (n / 2) @ [ b ]
+  in
+  match aux n with 1 :: v -> v | _ -> assert false
+
+let n2jotstr n =
+  let v = n2bin n in
+  String.concat "" (List.map (fun x -> string_of_int x) v)
+
+let combinators_to_str = function
+  | `S -> "S"
+  | `K -> "K"
+  | `I -> "I"
+  | `Jot n -> n2jotstr n
 
 let pp_combinator pp_var =
   let rec aux fmt = function
@@ -42,7 +58,8 @@ let pp_combinator pp_var =
 
 let size_of_pp_combinator =
   let rec aux = function
-    | CVar v -> 1
+    | CVar (`Jot x) -> List.length @@ n2bin x
+    | CVar _ -> 1
     | CApp _ as x -> (
         let combs : 'a combinator list =
           let rec aux d =
@@ -62,7 +79,13 @@ let combinator_to_str m = Format.asprintf "%a" (pp_combinator pp_combinators) m
 
 let pp_ski_str fmt v =
   Format.fprintf fmt "%s"
-  @@ match v with `S -> "S" | `K -> "K" | `I -> "I" | `Z -> "0" | `Str s -> s
+  @@
+  match v with
+  | `S -> "S"
+  | `K -> "K"
+  | `I -> "I"
+  | `Jot n -> n2jotstr n
+  | `Str s -> s
 
 let rec is_free m v =
   match m with
@@ -155,16 +178,18 @@ let b_based_churchnum_table =
                let ta = btable.(a) in
                let tb = btable.(b) in
                let tm = subst (subst m "m" ta) "n" tb in
+               let tl =
+                 String.length
+                   (Format.asprintf "%a" (pp_combinator pp_string) tm)
+               in
                match res with
-               | None -> Some tm
-               | Some bm ->
-                   if size_of_pp_combinator bm > size_of_pp_combinator tm then
-                     Some tm
-                   else res)
+               | None -> Some (tm, tl)
+               | Some (_, bl) -> if bl > tl then Some (tm, tl) else res)
            None
     in
-    Format.eprintf "%d %a\n" i (pp_option (pp_combinator pp_string)) tm;
-    btable.(i) <- Option.get tm
+    let tm, _ = Option.get tm in
+    Format.eprintf "%d %a\n" i (pp_combinator pp_string) tm;
+    btable.(i) <- tm
   done;
   btable
 
@@ -172,7 +197,7 @@ let shortest_churchnum_table =
   let bcom = s2comb "(S(KS)K)" in
   Array.map (fun d -> CApp (d, bcom)) b_based_churchnum_table
 
-type combinators = [ `S | `K | `I | `Z ]
+type combinators = [ `S | `K | `I | `Jot of int ]
 
 let rec comb_to_lambda :
     string combinator -> [ `Com of combinators | `Str of string ] lambda =
@@ -247,6 +272,14 @@ let ski (m : string lambda) : combinators combinator =
 
 exception StepLimit
 
+let jot2comb n =
+  let v = n2bin n in
+  List.fold_left
+    (fun acc x ->
+      if x = 0 then CApp (CApp (acc, CVar `S), CVar `K)
+      else CApp (CVar `S, CApp (CVar `K, acc)))
+    (CVar `I) v
+
 let reduce_comb m =
   let step = ref 0 in
   let rec aux m =
@@ -257,7 +290,7 @@ let reduce_comb m =
     | CApp (CApp (CVar `K, m), _) -> aux m
     | CApp (CApp (CApp (CVar `S, m), n), o) ->
         aux (CApp (CApp (m, o), CApp (n, o)))
-    | CVar `Z -> aux @@ CApp (CVar `S, CVar `K)
+    | CVar (`Jot x) -> aux @@ jot2comb x
     | CVar _ as m -> m
     | CApp (m, n) as a ->
         let b = CApp (aux m, aux n) in

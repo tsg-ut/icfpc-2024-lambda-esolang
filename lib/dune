@@ -1,8 +1,8 @@
 (library
  (name lambda_esolang)
  (public_name lambda_esolang)
- (flags -linkall) ; in order to load library.ml
-                  ; (flags -w -33)
+ (flags -w @a-70 -linkall)
+ ; in order to load library.ml
  (libraries str))
 
 (ocamllex lexer)
