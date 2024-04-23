@@ -58,8 +58,7 @@ let b_based_churchnum_table =
                let tb = btable.(b) in
                let tm = subst (subst m "m" ta) "n" tb in
                let tl =
-                 String.length
-                   (Format.asprintf "%a" (pp pp_string) tm)
+                 String.length (Format.asprintf "%a" (pp pp_string) tm)
                in
                match res with
                | None -> Some (tm, tl)
@@ -79,8 +78,8 @@ let shortest_churchnum_table =
 let n2charchnum n =
   if n < Array.length shortest_churchnum_table then
     Interpreter.scomb_to_lambda @@ shortest_churchnum_table.(n)
-  else (
+  else
     let open Syntax.Lambda in
     Format.eprintf "Generate non-optimized church num: %d\n" n;
     let rec aux n = if n = 0 then Var "z" else App (Var "s", aux (n - 1)) in
-    map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n)))
+    map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))

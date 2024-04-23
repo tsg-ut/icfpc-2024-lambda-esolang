@@ -53,10 +53,8 @@ module Combinator = struct
     Format.fprintf fmt "%s"
     @@
     match v with
-    | `S -> "S"
-    | `K -> "K"
-    | `I -> "I"
-    | `Jot n -> n2jotstr n
+    | `Com c -> (
+        match c with `S -> "S" | `K -> "K" | `I -> "I" | `Jot n -> n2jotstr n)
     | `Str s -> s
 
   type 'var combinator =
@@ -102,12 +100,10 @@ module Combinator = struct
     in
     aux
 
-  let combinator_to_str m =
-    Format.asprintf "%a" (pp pp_combinators) m
+  let combinator_to_str m = Format.asprintf "%a" (pp pp_combinators) m
 
   let rec subst m v by =
     match m with
     | CVar w -> if v = w then by else m
     | CApp (m, n) -> CApp (subst m v by, subst n v by)
-
 end

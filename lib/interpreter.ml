@@ -25,9 +25,10 @@ let jot2comb n =
   let v = n2bin n in
   List.fold_left
     (fun acc x ->
-      if x = 0 then CApp (CApp (acc, CVar `S), CVar `K)
-      else CApp (CVar `S, CApp (CVar `K, acc)))
-    (CVar `I) v
+      if x = 0 then CApp (CApp (acc, CVar (`Com `S)), CVar (`Com `K))
+      else CApp (CVar (`Com `S), CApp (CVar (`Com `K), acc)))
+    (CVar (`Com `I))
+    v
 
 let reduce_comb m =
   let step = ref 0 in
@@ -35,11 +36,11 @@ let reduce_comb m =
     if !step > 1000 then raise StepLimit;
     step := !step + 1;
     match m with
-    | CApp (CVar `I, m) -> aux m
-    | CApp (CApp (CVar `K, m), _) -> aux m
-    | CApp (CApp (CApp (CVar `S, m), n), o) ->
+    | CApp (CVar (`Com `I), m) -> aux m
+    | CApp (CApp (CVar (`Com `K), m), _) -> aux m
+    | CApp (CApp (CApp (CVar (`Com `S), m), n), o) ->
         aux (CApp (CApp (m, o), CApp (n, o)))
-    | CVar (`Jot x) -> aux @@ jot2comb x
+    | CVar (`Com (`Jot x)) -> aux @@ jot2comb x
     | CVar _ as m -> m
     | CApp (m, n) as a ->
         let b = CApp (aux m, aux n) in

@@ -11,13 +11,13 @@ let lift_fv d =
     in
     aux
 
-type ski_fv_str = [ `I | `K | `S | `Str of string | `Jot of int | `Fv of int ]
+type ski_fv_str = [ `Com of combinators | `Str of string | `Fv of int ]
 
 let pp_ski_fv_str_combinator =
   pp (fun fmt v ->
       match v with
       | `Fv x -> Format.fprintf fmt "a%d" x
-      | (`I | `K | `S | `Jot _ | `Str (_ : string)) as v -> pp_ski_str fmt v)
+      | (`Com _ | `Str (_ : string)) as v -> pp_ski_str fmt v)
 
 let enumerate_ski ~(size : int) ~(fvn : int) =
   let table =
@@ -26,7 +26,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
 
   table.(0).(0) <-
     List.map
-      (fun v -> CVar v)
+      (fun v -> CVar (`Com v))
       ([ `S; `K; `I ] @ List.init 6 (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- [ CVar (`Fv 0) ];
 
@@ -51,7 +51,9 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
   done;
 
   let res =
-    Array.to_list table |> List.concat_map Array.to_list |> List.concat_map (fun x -> x)
+    Array.to_list table
+    |> List.concat_map Array.to_list
+    |> List.concat_map (fun x -> x)
   in
   Format.eprintf "Table generated with size %d\n" (List.length res);
   (* List.iter (fun c ->
@@ -61,7 +63,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
 
 let rec is_ski_free (m : ski_fv_str combinator) =
   match m with
-  | CVar (`S | `K | `I | `Jot _) -> false
+  | CVar (`Com _) -> false
   | CVar (`Str _ | `Fv _) -> true
   | CApp (m, n) -> is_ski_free m && is_ski_free n
 
@@ -116,14 +118,14 @@ let _ =
 
 let ski_to_with_str : combinators combinator -> ski_fv_str combinator =
   let rec aux = function
-    | CVar ((`S | `K | `I | `Jot _) as v) -> CVar v
+    | CVar v -> CVar (`Com v)
     | CApp (m, n) -> CApp (aux m, aux n)
   in
   aux
 
 let with_str_to_ski : ski_fv_str combinator -> combinators combinator =
   let rec aux = function
-    | CVar ((`S | `K | `I | `Jot _) as v) -> CVar v
+    | CVar (`Com v) -> CVar v
     | CVar (`Str _ | `Fv _) -> assert false
     | CApp (m, n) -> CApp (aux m, aux n)
   in
@@ -217,7 +219,7 @@ let optimize m =
     if cnt >= 15 then m
     else
       let tm = optimize_with_simpler_term m in
-      Format.eprintf "Optimized: %a\n" (pp pp_ski_str) tm;
+      Format.eprintf "Optimized: %a\n" (pp pp_combinators) tm;
       if tm = m then tm else loop tm (cnt + 1)
   in
   loop m 0
