@@ -1,4 +1,4 @@
-open Syntax
+open Syntax.Combinator
 open Interpreter
 
 let lift_fv d =
@@ -14,7 +14,7 @@ let lift_fv d =
 type ski_fv_str = [ `I | `K | `S | `Str of string | `Jot of int | `Fv of int ]
 
 let pp_ski_fv_str_combinator =
-  pp_combinator (fun fmt v ->
+  pp (fun fmt v ->
       match v with
       | `Fv x -> Format.fprintf fmt "a%d" x
       | (`I | `K | `S | `Jot _ | `Str (_ : string)) as v -> pp_ski_str fmt v)
@@ -51,7 +51,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
   done;
 
   let res =
-    Array.to_list table |> List.concat_map Array.to_list |> List.concat
+    Array.to_list table |> List.concat_map Array.to_list |> List.concat_map (fun x -> x)
   in
   Format.eprintf "Table generated with size %d\n" (List.length res);
   (* List.iter (fun c ->
@@ -217,7 +217,7 @@ let optimize m =
     if cnt >= 15 then m
     else
       let tm = optimize_with_simpler_term m in
-      Format.eprintf "Optimized: %a\n" (pp_combinator pp_ski_str) tm;
+      Format.eprintf "Optimized: %a\n" (pp pp_ski_str) tm;
       if tm = m then tm else loop tm (cnt + 1)
   in
   loop m 0

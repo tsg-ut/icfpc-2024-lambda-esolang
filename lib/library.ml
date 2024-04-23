@@ -1,4 +1,4 @@
-open Syntax
+open Syntax.Lambda
 
 let library = ref ([] : (string * string lambda) list)
 

@@ -1,5 +1,5 @@
 %{
-  open Syntax
+  open Syntax.Lambda
 %}
 
 %token <string> IDENT COMBINATOR DOLLAR
@@ -9,7 +9,7 @@
 %right ARROW
 
 %start main
-%type <string Syntax.lambda> main
+%type <string Syntax.Lambda.lambda> main
 %%
 main:
 | expr EOF { $1 }

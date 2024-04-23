@@ -26,6 +26,7 @@ rule token = parse
 | num+ { NUM (int_of_string (Lexing.lexeme lexbuf)) }
 | ident { IDENT (Lexing.lexeme lexbuf) }
 | ['A'-'Z'] { COMBINATOR (Lexing.lexeme lexbuf) }
+| 'J'('0'|'1')+ { COMBINATOR (Lexing.lexeme lexbuf) }
 | "->" { ARROW }
 | eof { EOF }
 | _   { failwith ("Unknown token: " ^ (Lexing.lexeme lexbuf)) }
