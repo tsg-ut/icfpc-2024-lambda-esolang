@@ -17,7 +17,7 @@ let pp_lambda pp_var =
   in
   aux
 
-let combinators_to_str = function `S -> "S" | `K -> "K" | `I -> "I"
+let combinators_to_str = function `S -> "S" | `K -> "K" | `I -> "I" | `Z -> "0"
 
 let pp_combinator pp_var =
   let rec aux fmt = function
@@ -62,7 +62,7 @@ let combinator_to_str m = Format.asprintf "%a" (pp_combinator pp_combinators) m
 
 let pp_ski_str fmt v =
   Format.fprintf fmt "%s"
-  @@ match v with `S -> "S" | `K -> "K" | `I -> "I" | `Str s -> s
+  @@ match v with `S -> "S" | `K -> "K" | `I -> "I" | `Z -> "0" | `Str s -> s
 
 let rec is_free m v =
   match m with
@@ -75,7 +75,8 @@ let rec map f = function
   | Abs (v, m) -> Abs (f v, map f m)
   | App (m, n) -> App (map f m, map f n)
 
-let rec subst m v by = match m with
+let rec subst m v by =
+  match m with
   | CVar w -> if v = w then by else m
   | CApp (m, n) -> CApp (subst m v by, subst n v by)
 
@@ -88,13 +89,12 @@ let s2comb s =
   aux @@ Library.s2lam s
 
 let rec pow x y =
-  if y = 0 then 1 else
-  let d = pow x (y/2) in
-  d * d * (if y mod 2 = 1 then x else 1)
+  if y = 0 then 1
+  else
+    let d = pow x (y / 2) in
+    d * d * if y mod 2 = 1 then x else 1
 
-type func =
-  | Unary of (int -> int)
-  | Binary of (int -> int -> int)
+type func = Unary of (int -> int) | Binary of (int -> int -> int)
 
 (* Based on https://yshl.hatenadiary.com/entry/20081006/1223304302 *)
 
@@ -106,53 +106,62 @@ let pp_option pp_var fmt v =
 let pp_string fmt s = Format.fprintf fmt "%s" s
 
 let b_based_churchnum_table =
-  let converts = [
-    (Unary (fun n -> n + 1), s2comb "(S S n)");
-    (Binary (fun m n -> m + n), s2comb "(S (S m S) n)");
-    (Binary (fun m n -> n * m), s2comb "(S (S I m) n)");
-    (Binary (fun m n -> pow m n), s2comb "(S n m)");
-    (Unary (fun m -> pow m m), s2comb "(S S I m)");
-    (Unary (fun n -> n * (n+1)), s2comb "(S (S S S) n)");
-  ] in
+  let converts =
+    [
+      (Unary (fun n -> n + 1), s2comb "(S S n)");
+      (Binary (fun m n -> m + n), s2comb "(S (S m S) n)");
+      (Binary (fun m n -> n * m), s2comb "(S (S I m) n)");
+      (Binary (fun m n -> pow m n), s2comb "(S n m)");
+      (Unary (fun m -> pow m m), s2comb "(S S I m)");
+      (Unary (fun n -> n * (n + 1)), s2comb "(S (S S S) n)");
+    ]
+  in
 
   Format.eprintf "Converters\n";
   let n = 1300 in
   let tst = Array.init n (fun _ -> []) in
-  for i = 1 to (n-1); do
-    List.iter (fun (f,m) -> match f with
-      | Unary f ->
-          let tf = f i in
-          if 0 <= tf && tf < n then tst.(tf) <- (i,i,m) :: tst.(tf)
-      | Binary _ -> ()
-    ) converts;
-    for j = 1 to (n-1); do
-      List.iter (fun (f,m) -> match f with
-        | Unary _ -> ()
-        | Binary f ->
-          let tf = f i j in
-          if 0 <= tf && tf < n then tst.(tf) <- (i,j,m) :: tst.(tf)
-      ) converts;
+  for i = 1 to n - 1 do
+    List.iter
+      (fun (f, m) ->
+        match f with
+        | Unary f ->
+            let tf = f i in
+            if 0 <= tf && tf < n then tst.(tf) <- (i, i, m) :: tst.(tf)
+        | Binary _ -> ())
+      converts;
+    for j = 1 to n - 1 do
+      List.iter
+        (fun (f, m) ->
+          match f with
+          | Unary _ -> ()
+          | Binary f ->
+              let tf = f i j in
+              if 0 <= tf && tf < n then tst.(tf) <- (i, j, m) :: tst.(tf))
+        converts
     done
   done;
   Format.eprintf "Make etable\n";
-  let btable = Array.make n (s2comb "I") in 
+  let btable = Array.make n (s2comb "I") in
   btable.(0) <- s2comb "K(KI)";
   btable.(1) <- s2comb "KI";
-  for i = 2 to n-1; do
-    let tm = 
-      tst.(i) |>
-      List.fold_left (fun res (a,b,m) ->
-        if a >= i || b >= i then res else begin 
-          (* Format.eprintf "%d <- %d %d | %a\n" i a b (pp_option (pp_combinator pp_string)) res; *)
-          let ta = btable.(a) in
-          let tb = btable.(b) in
-          let tm = subst (subst m "m" ta) "n" tb in
-          match res with
-          | None -> Some tm
-          | Some bm ->
-              if size_of_pp_combinator bm > size_of_pp_combinator tm then Some tm else res
-        end
-      ) None
+  for i = 2 to n - 1 do
+    let tm =
+      tst.(i)
+      |> List.fold_left
+           (fun res (a, b, m) ->
+             if a >= i || b >= i then res
+             else
+               (* Format.eprintf "%d <- %d %d | %a\n" i a b (pp_option (pp_combinator pp_string)) res; *)
+               let ta = btable.(a) in
+               let tb = btable.(b) in
+               let tm = subst (subst m "m" ta) "n" tb in
+               match res with
+               | None -> Some tm
+               | Some bm ->
+                   if size_of_pp_combinator bm > size_of_pp_combinator tm then
+                     Some tm
+                   else res)
+           None
     in
     Format.eprintf "%d %a\n" i (pp_option (pp_combinator pp_string)) tm;
     btable.(i) <- Option.get tm
@@ -161,12 +170,13 @@ let b_based_churchnum_table =
 
 let shortest_churchnum_table =
   let bcom = s2comb "(S(KS)K)" in
-  Array.map (fun d -> CApp(d,bcom)) b_based_churchnum_table 
+  Array.map (fun d -> CApp (d, bcom)) b_based_churchnum_table
 
-type combinators = [ `S | `K | `I ]
+type combinators = [ `S | `K | `I | `Z ]
 
-let rec comb_to_lambda : string combinator ->  [ `Com of combinators | `Str of string ] lambda
-    = function
+let rec comb_to_lambda :
+    string combinator -> [ `Com of combinators | `Str of string ] lambda =
+  function
   | CVar "S" -> Var (`Com `S)
   | CVar "K" -> Var (`Com `K)
   | CVar "I" -> Var (`Com `I)
@@ -174,13 +184,12 @@ let rec comb_to_lambda : string combinator ->  [ `Com of combinators | `Str of s
   | CApp (m, n) -> App (comb_to_lambda m, comb_to_lambda n)
 
 let n2charchnum n =
-  if n < Array.length shortest_churchnum_table then 
+  if n < Array.length shortest_churchnum_table then
     comb_to_lambda @@ shortest_churchnum_table.(n)
-  else begin
+  else (
     Format.eprintf "Generate non-optimized church num: %d\n" n;
     let rec aux n = if n = 0 then Var "z" else App (Var "s", aux (n - 1)) in
-    map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))
-  end
+    map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n)))
 
 let ski (m : string lambda) : combinators combinator =
   let rec lambda_to_comb :
@@ -192,11 +201,10 @@ let ski (m : string lambda) : combinators combinator =
     | App (m, n) -> CApp (lambda_to_comb m, lambda_to_comb n)
   in
   let com s = Var (`Com s) in
-  let pp = pp_lambda (fun fmt v ->
-    let s =
-      match v with `Com s -> combinators_to_str s | `Str s -> s
-    in
-    Format.fprintf fmt "%s" s)
+  let pp =
+    pp_lambda (fun fmt v ->
+        let s = match v with `Com s -> combinators_to_str s | `Str s -> s in
+        Format.fprintf fmt "%s" s)
   in
   let rec aux m =
     (* Format.eprintf "Converting: %a\n"
@@ -207,19 +215,15 @@ let ski (m : string lambda) : combinators combinator =
             Format.fprintf fmt "%s" s))
        m; *)
     match m with
-    | Var (`Str s) when String.get s 0 = '$' -> begin
+    | Var (`Str s) when String.get s 0 = '$' -> (
         let s = String.sub s 1 (String.length s - 1) in
-          try
-            aux @@ map (fun v -> `Str v) @@ List.assoc s (!Library.library)
-           with
-             | Not_found -> failwith ("Undefined variable $" ^ s)
-        end
-    | Var (`Str s) when String.get s 0 = '*' -> begin
+        try aux @@ map (fun v -> `Str v) @@ List.assoc s !Library.library
+        with Not_found -> failwith ("Undefined variable $" ^ s))
+    | Var (`Str s) when String.get s 0 = '*' ->
         let n = int_of_string @@ String.sub s 1 (String.length s - 1) in
         let res = aux @@ n2charchnum n in
         Format.eprintf "Numconv: %d => %a\n" n pp res;
         res
-        end
     | Var _ -> m
     | Abs (v, m) when is_free m v -> App (com `K, aux m)
     | Abs (v, (Abs _ as m)) -> aux (Abs (v, aux m))
@@ -237,7 +241,9 @@ let ski (m : string lambda) : combinators combinator =
          let s = match v with `Com s -> combinators_to_str s | `Str s -> s in
          Format.fprintf fmt "%s" s))
     m;
-  lambda_to_comb m
+  let res = lambda_to_comb m in
+  Format.eprintf "Converted in comb: %a\n" (pp_combinator pp_combinators) res;
+  res
 
 exception StepLimit
 
@@ -251,6 +257,7 @@ let reduce_comb m =
     | CApp (CApp (CVar `K, m), _) -> aux m
     | CApp (CApp (CApp (CVar `S, m), n), o) ->
         aux (CApp (CApp (m, o), CApp (n, o)))
+    | CVar `Z -> aux @@ CApp (CVar `S, CVar `K)
     | CVar _ as m -> m
     | CApp (m, n) as a ->
         let b = CApp (aux m, aux n) in
@@ -288,4 +295,3 @@ let rec size = function
    	end
    	s2lam(rec(n,0,bl))
    end *)
-

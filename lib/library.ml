@@ -16,6 +16,7 @@ let _ =
   register_library "t" (s2lam "K");
   register_library "f" (s2lam "a. b. b");
   register_library "cons" (s2lam "a. b. f. f a b");
+  register_library "cons2" (s2lam "b. a. f. f a b");
   ()
 
 (* #一文字の数字に変換する *)
