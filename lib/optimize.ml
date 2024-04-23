@@ -19,48 +19,6 @@ let pp_ski_fv_str_combinator =
       | `Fv x -> Format.fprintf fmt "a%d" x
       | (`Com _ | `Str (_ : string)) as v -> pp_ski_str fmt v)
 
-let enumerate_ski ~(size : int) ~(fvn : int) =
-  let table =
-    Array.make_matrix (size + 1) (fvn + 1) ([] : ski_fv_str combinator list)
-  in
-
-  table.(0).(0) <-
-    List.map
-      (fun v -> CVar (`Com v))
-      ([ `S; `K; `I ] @ List.init 6 (fun i -> `Jot (i + 2)));
-  if fvn > 0 then table.(0).(1) <- [ CVar (`Fv 0) ];
-
-  for i = 1 to size do
-    for ai = 0 to fvn do
-      let ttl = ref [] in
-      for j = 0 to i - 1 do
-        for aj = 0 to ai do
-          let t1 = table.(j).(aj) in
-          let t2 = table.(i - j - 1).(ai - aj) in
-          let tl =
-            List.concat_map
-              (fun l1 -> List.map (fun l2 -> CApp (l1, lift_fv aj l2)) t2)
-              t1
-          in
-          Format.eprintf "size: %d\n" (List.length tl);
-          ttl := tl :: !ttl
-        done
-      done;
-      table.(i).(ai) <- List.concat !ttl
-    done
-  done;
-
-  let res =
-    Array.to_list table
-    |> List.concat_map Array.to_list
-    |> List.concat_map (fun x -> x)
-  in
-  Format.eprintf "Table generated with size %d\n" (List.length res);
-  (* List.iter (fun c ->
-       Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
-     ) res; *)
-  res
-
 let rec is_ski_free (m : ski_fv_str combinator) =
   match m with
   | CVar (`Com _) -> false
@@ -89,30 +47,77 @@ let generate_behavior_hash m =
       let s = Format.asprintf "%d_%a" vn pp_ski_fv_str_combinator m in
       Some s
 
-let hash_db = ref []
+let hash_db = Hashtbl.create 2000000
+
+let enumerate_ski ~(size : int) ~(fvn : int) =
+  let table =
+    Array.make_matrix (size + 1) (fvn + 1) ([] : ski_fv_str combinator list)
+  in
+
+  table.(0).(0) <-
+    List.map
+      (fun v -> CVar (`Com v))
+      ([ `S; `K; `I ] @ List.init 6 (fun i -> `Jot (i + 2)));
+  if fvn > 0 then table.(0).(1) <- [ CVar (`Fv 0) ];
+
+  for i = 1 to size do
+    for ai = 0 to fvn do
+      let ttl = ref [] in
+      for j = 0 to i - 1 do
+        for aj = 0 to ai do
+          let t1 = table.(j).(aj) in
+          let t2 = table.(i - j - 1).(ai - aj) in
+          let tl =
+            List.concat_map
+              (fun l1 -> List.rev_map (fun l2 -> CApp (l1, lift_fv aj l2)) t2)
+              t1
+          in
+          let tl =
+            List.filter
+              (fun c ->
+                match generate_behavior_hash c with
+                | None -> true
+                | Some h -> (
+                    let s = Format.asprintf "%a" pp_ski_fv_str_combinator c in
+                    let l = String.length s in
+                    (* Format.eprintf "Hash %s => %s\n" s h; *)
+                    match Hashtbl.find_opt hash_db h with
+                    | Some (_, cl) ->
+                        if cl > l then (
+                          Hashtbl.replace hash_db h (c, l);
+                          true)
+                        else false
+                    | None ->
+                        Hashtbl.replace hash_db h (c, l);
+                        true))
+              tl
+          in
+          Format.eprintf "size: %d\n" (List.length tl);
+          ttl := tl :: !ttl
+        done
+      done;
+      table.(i).(ai) <- List.concat_map (fun x -> x) !ttl
+    done
+  done;
+  let res =
+    Array.to_list table
+    |> List.concat_map Array.to_list
+    |> List.concat_map (fun x -> x)
+  in
+  Format.eprintf "Table generated with size %d\n" (List.length res);
+  (* assert false; *)
+  (* List.iter (fun c ->
+       Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
+     ) res; *)
+  res
 
 let _ =
-  let combs = enumerate_ski ~size:3 ~fvn:2 in
-  List.iter
-    (fun c ->
-      match generate_behavior_hash c with
-      | None -> ()
-      | Some h -> (
-          let s = Format.asprintf "%a" pp_ski_fv_str_combinator c in
-          let l = String.length s in
-          Format.eprintf "Hash %s => %s\n" s h;
-          match List.assoc_opt h !hash_db with
-          | Some (_, cl) ->
-              if cl > l then (
-                hash_db := List.remove_assoc h !hash_db;
-                hash_db := (h, (c, l)) :: !hash_db)
-          | None -> hash_db := (h, (c, l)) :: !hash_db))
-    combs;
+  let _ = enumerate_ski ~size:4 ~fvn:2 in
 
-  List.iter
-    (fun (h, (c, _)) ->
-      Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
-    !hash_db;
+  (* Hashtbl.iter
+     (fun h (c, _) ->
+       Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
+     hash_db; *)
   (* assert false; *)
   ()
 
@@ -189,7 +194,7 @@ let optimize_with_simpler_term m =
               match generate_behavior_hash pm with
               | Some h -> (
                   (* Format.eprintf "pm: %a -> h: %s\n" pp_ski_fv_str_combinator pm h; *)
-                  match List.assoc_opt h !hash_db with
+                  match Hashtbl.find_opt hash_db h with
                   | None -> None
                   | Some (tm, l) ->
                       let ftm = f tm in

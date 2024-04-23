@@ -58,23 +58,3 @@ let rec size = function
   | Var _ -> 1
   | Abs (_, m) -> size m + 1
   | App (m, n) -> size m + size n + 1
-
-(* #2進数で実装したほうがいいらしい
-   #32bit固定のほうが楽らしい
-   #true,false の組でやって、末尾をvにする *)
-
-(* def n2lam(n,bl=$binlength)
-   	if $ischurchnum then
-   		return s2lam('s. z.' + '(s' * n + ' z' + ')' * n)
-   	end
-   	#s = 's. z.' + '(s' * n + ' z' + ')' * n
-   	def rec(n,d,bl)
-   		if d == bl then 'V'
-   		elsif n % 2 > 0 then
-   			'($cons $t ' + rec(n/2,d+1,bl) + ')'
-   		else
-   			'($cons $f ' + rec(n/2,d+1,bl) + ')'
-   		end
-   	end
-   	s2lam(rec(n,0,bl))
-   end *)

@@ -1,6 +1,7 @@
 open Interpreter
 open Utils
 open Syntax.Combinator
+module _ = Optimize
 
 type func = Unary of (int -> int) | Binary of (int -> int -> int)
 
@@ -83,3 +84,25 @@ let n2charchnum n =
     Format.eprintf "Generate non-optimized church num: %d\n" n;
     let rec aux n = if n = 0 then Var "z" else App (Var "s", aux (n - 1)) in
     map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))
+
+(* To be implemented for Unlambda compiler *)
+
+(* #2進数で実装したほうがいいらしい
+   #32bit固定のほうが楽らしい
+   #true,false の組でやって、末尾をvにする *)
+
+(* def n2lam(n,bl=$binlength)
+   	if $ischurchnum then
+   		return s2lam('s. z.' + '(s' * n + ' z' + ')' * n)
+   	end
+   	#s = 's. z.' + '(s' * n + ' z' + ')' * n
+   	def rec(n,d,bl)
+   		if d == bl then 'V'
+   		elsif n % 2 > 0 then
+   			'($cons $t ' + rec(n/2,d+1,bl) + ')'
+   		else
+   			'($cons $f ' + rec(n/2,d+1,bl) + ')'
+   		end
+   	end
+   	s2lam(rec(n,0,bl))
+   end *)
