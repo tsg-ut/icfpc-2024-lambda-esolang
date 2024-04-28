@@ -1,6 +1,7 @@
 open Syntax.Lambda
+open Syntax.Combinators
 
-let library = ref ([] : (string * string lambda) list)
+let library = ref ([] : (string * com_str lambda) list)
 
 let register_library name m =
   Format.eprintf "----------------Register %s\n" name;

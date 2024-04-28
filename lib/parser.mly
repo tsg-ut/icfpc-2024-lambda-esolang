@@ -1,5 +1,6 @@
 %{
   open Syntax.Lambda
+  open Syntax.Combinators
 %}
 
 %token <string> IDENT COMBINATOR DOLLAR
@@ -9,13 +10,13 @@
 %right ARROW
 
 %start main
-%type <string Syntax.Lambda.lambda> main
+%type < Syntax.Combinators.com_str Syntax.Lambda.lambda > main
 %%
 main:
 | expr EOF { $1 }
 ;
 expr:
-| IDENT DOT expr { Abs($1,$3) }
+| IDENT DOT expr { Abs(`Str $1,$3) }
 | term_list {
     match $1 with
     | [] -> assert false
@@ -27,10 +28,10 @@ term_list:
 | term { [$1] }
 ;
 term:
-| IDENT { Var $1 }
-| PUTC { Var ("." ^ String.make 1 $1) }
-| COMBINATOR { Var $1 }
-| ASTER NUM { Var ("*" ^ string_of_int $2) }
-| DOLLAR { Var ("$" ^ $1) }
+| IDENT { Var (`Str $1) }
+| PUTC { Var (`Str ("." ^ String.make 1 $1)) }
+| COMBINATOR { Var (`Com (str_to_combinators $1)) }
+| ASTER NUM { Var (`Str("*" ^ string_of_int $2)) }
+| DOLLAR { Var (`Str("$" ^ $1)) }
 | LPAR expr RPAR { $2 }
 ;

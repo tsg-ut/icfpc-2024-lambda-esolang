@@ -1,5 +1,6 @@
 open Syntax
 open Syntax.Lambda
+open Syntax.Combinators
 open Syntax.Combinator
 
 let s2comb s =
@@ -10,14 +11,12 @@ let s2comb s =
   in
   aux @@ Library.s2lam s
 
-let rec scomb_to_lambda :
-    string combinator -> [ `Com of combinators | `Str of string ] lambda =
-  function
-  | CVar "S" -> Var (`Com `S)
-  | CVar "K" -> Var (`Com `K)
-  | CVar "I" -> Var (`Com `I)
-  | CVar v -> failwith ("Unsupported combinator: " ^ v)
-  | CApp (m, n) -> App (scomb_to_lambda m, scomb_to_lambda n)
+let com_to_lambda : 'a combinator -> 'a lambda =
+  let rec aux = function
+    | CVar v -> Var v
+    | CApp (m, n) -> App (aux m, aux n)
+  in
+  aux
 
 exception StepLimit
 
@@ -46,7 +45,7 @@ let reduce_comb m =
         let b = CApp (aux m, aux n) in
         if a = b then b else aux b
   in
-  let _pp = Combinator.pp pp_ski_str in
+  let _pp = Combinator.pp pp_com_str in
   try
     let tm = aux m in
     (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)

@@ -26,8 +26,9 @@ module Lambda = struct
     | App (m, n) -> App (map f m, map f n)
 end
 
-module Combinator = struct
-  type combinators = [ `S | `K | `I | `Jot of int ]
+module Combinators = struct
+  type t = [ `S | `K | `I | `D | `Jot of int ]
+  type com_str = [ `Com of t | `Str of string ]
 
   let n2bin n =
     assert (n >= 2);
@@ -41,22 +42,59 @@ module Combinator = struct
     let v = n2bin n in
     String.concat "" (List.map (fun x -> string_of_int x) v)
 
+  let jotstr2n s =
+    let ts = "1" ^ s in
+    let rec aux acc i =
+      let acc =
+        match String.get ts i with
+        | '0' -> acc * 2
+        | '1' -> (acc * 2) + 1
+        | c -> failwith (Format.sprintf "Invalid Character: %c" c)
+      in
+      let i = i + 1 in
+      if i >= String.length ts then acc else aux acc i
+    in
+    let res = aux 0 0 in
+    (* Format.eprintf "%s -> %d -> %s\n" s res (n2jotstr res); *)
+    assert (n2jotstr res = s);
+    res
+
+  let str_to_combinators = function
+    | "S" -> `S
+    | "K" -> `K
+    | "I" -> `I
+    | "D" -> `D
+    | s when String.get s 0 = 'J' ->
+        let s = String.sub s 1 (String.length s - 1) in
+        `Jot (jotstr2n s)
+    | x -> failwith ("Unknown combinator: " ^ x)
+
   let combinators_to_str = function
     | `S -> "S"
     | `K -> "K"
     | `I -> "I"
+    | `D -> "D"
     | `Jot n -> n2jotstr n
 
-  let pp_combinators fmt c = Format.fprintf fmt "%s" (combinators_to_str c)
+  let pp fmt c = Format.fprintf fmt "%s" (combinators_to_str c)
 
-  let pp_ski_str fmt v =
+  let pp_com_str fmt v =
     Format.fprintf fmt "%s"
-    @@
-    match v with
-    | `Com c -> (
-        match c with `S -> "S" | `K -> "K" | `I -> "I" | `Jot n -> n2jotstr n)
-    | `Str s -> s
+    @@ match v with `Com c -> combinators_to_str c | `Str s -> s
 
+  let compare c d =
+    match (c, d) with
+    | `S, `S -> 0
+    | `S, (`K | `I | `Jot _) -> 1
+    | `K, `K -> 0
+    | `K, (`I | `Jot _) -> 1
+    | `I, `I -> 0
+    | `I, `Jot _ -> 1
+    | `Jot v, `Jot w -> Int.compare v w
+    | _ -> -1
+end
+
+module Combinator = struct
   type 'var combinator =
     | CVar of 'var
     | CApp of 'var combinator * 'var combinator
@@ -84,7 +122,7 @@ module Combinator = struct
 
   let size_of_pp =
     let rec aux = function
-      | CVar (`Jot x) -> List.length @@ n2bin x
+      | CVar (`Jot x) -> List.length @@ Combinators.n2bin x
       | CVar _ -> 1
       | CApp _ as x -> (
           let combs : 'a combinator list =
@@ -100,10 +138,28 @@ module Combinator = struct
     in
     aux
 
-  let combinator_to_str m = Format.asprintf "%a" (pp pp_combinators) m
+  let combinator_to_str m = Format.asprintf "%a" (pp Combinators.pp) m
+
+  let rec map f = function
+    | CVar v -> CVar (f v)
+    | CApp (m, n) -> CApp (map f m, map f n)
 
   let rec subst m v by =
     match m with
-    | CVar w -> if v = w then by else m
+    | CVar w when v = w -> by
+    | CVar _ -> m
     | CApp (m, n) -> CApp (subst m v by, subst n v by)
+
+  module Order (V : Set.OrderedType) = struct
+    type t = V.t combinator
+
+    let rec compare m n =
+      match (m, n) with
+      | CVar v, CVar w -> V.compare v w
+      | CVar _, CApp _ -> -1
+      | CApp _, CVar _ -> 1
+      | CApp (m1, m2), CApp (n1, n2) ->
+          let x = compare m1 n1 in
+          if x <> 0 then x else compare m2 n2
+  end
 end

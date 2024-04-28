@@ -3,7 +3,7 @@ open Lambda_esolang
 let test_ski_length () =
   Alcotest.(check int)
     ""
-    (String.length @@ Syntax.Combinator.combinators_to_str `K)
+    (String.length @@ Syntax.Combinators.combinators_to_str `K)
     1
 
 let () =

@@ -1,5 +1,6 @@
 open Interpreter
 open Utils
+open Syntax
 open Syntax.Combinator
 module _ = Optimize
 
@@ -23,30 +24,39 @@ let b_based_churchnum_table =
   Format.eprintf "Converters\n";
   let n = 1300 in
   let tst = Array.init n (fun _ -> []) in
-  for i = 1 to n - 1 do
-    List.iter
-      (fun (f, m) ->
-        match f with
-        | Unary f ->
+  List.iter
+    (fun (f, m) ->
+      match f with
+      | Unary f ->
+          let rec fori i =
             let tf = f i in
-            if 0 <= tf && tf < n then tst.(tf) <- (i, i, m) :: tst.(tf)
-        | Binary _ -> ())
-      converts;
-    for j = 1 to n - 1 do
-      List.iter
-        (fun (f, m) ->
-          match f with
-          | Unary _ -> ()
-          | Binary f ->
-              let tf = f i j in
-              if 0 <= tf && tf < n then tst.(tf) <- (i, j, m) :: tst.(tf))
-        converts
-    done
-  done;
-  Format.eprintf "Make etable\n";
+            if tf < n && i < n then (
+              tst.(tf) <- (i, i, m) :: tst.(tf);
+              fori (i + 1))
+            else ()
+          in
+          fori 1
+      | Binary f ->
+          let rec fori i =
+            (let rec forj j =
+               let tf = f i j in
+               if tf < n && j < n then (
+                 tst.(tf) <- (i, j, m) :: tst.(tf);
+                 forj (j + 1))
+               else ()
+             in
+             forj 1);
+            if i < n then fori (i + 1)
+          in
+          fori 1)
+    converts;
+  Format.eprintf "Make btable\n";
+  flush_all ();
+  (* assert false; *)
   let btable = Array.make n (s2comb "I") in
   btable.(0) <- s2comb "K(KI)";
   btable.(1) <- s2comb "KI";
+  btable.(2) <- s2comb "SSJ0";
   for i = 2 to n - 1 do
     let tm =
       tst.(i)
@@ -57,9 +67,13 @@ let b_based_churchnum_table =
                (* Format.eprintf "%d <- %d %d | %a\n" i a b (pp_option (pp_combinator pp_string)) res; *)
                let ta = btable.(a) in
                let tb = btable.(b) in
-               let tm = subst (subst m "m" ta) "n" tb in
+               let tm = subst (subst m (`Str "m") ta) (`Str "n") tb in
+               (* let tm = Optimize.com_str_to_com tm in
+                  let tm = Optimize.optimize tm in
+                  let tm = Optimize.com_to_com_str tm in *)
                let tl =
-                 String.length (Format.asprintf "%a" (pp pp_string) tm)
+                 String.length
+                   (Format.asprintf "%a" (pp Combinators.pp_com_str) tm)
                in
                match res with
                | None -> Some (tm, tl)
@@ -67,7 +81,8 @@ let b_based_churchnum_table =
            None
     in
     let tm, _ = Option.get tm in
-    Format.eprintf "%d %a\n" i (pp pp_string) tm;
+    Format.eprintf "%d %a\n" i (pp Syntax.Combinators.pp_com_str) tm;
+    flush_all ();
     btable.(i) <- tm
   done;
   btable
@@ -78,12 +93,12 @@ let shortest_churchnum_table =
 
 let n2charchnum n =
   if n < Array.length shortest_churchnum_table then
-    Interpreter.scomb_to_lambda @@ shortest_churchnum_table.(n)
+    Interpreter.com_to_lambda @@ shortest_churchnum_table.(n)
   else
     let open Syntax.Lambda in
     Format.eprintf "Generate non-optimized church num: %d\n" n;
     let rec aux n = if n = 0 then Var "z" else App (Var "s", aux (n - 1)) in
-    map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))
+    Lambda.map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))
 
 (* To be implemented for Unlambda compiler *)
 
