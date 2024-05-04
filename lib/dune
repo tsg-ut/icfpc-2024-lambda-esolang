@@ -1,7 +1,7 @@
 (library
  (name lambda_esolang)
  (public_name lambda_esolang)
- (flags -w @a-70-21 -linkall)
+ (flags -w @a-70-21-4 -linkall)
  ; in order to load library.ml
  (libraries str))
 

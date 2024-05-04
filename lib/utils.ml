@@ -12,3 +12,13 @@ let pp_option pp_var fmt v =
   | Some v -> Format.fprintf fmt "Some(%a)" pp_var v
 
 let pp_string fmt s = Format.fprintf fmt "%s" s
+
+let cached gen =
+  let v = ref None in
+  fun () ->
+    match !v with
+    | None ->
+        let tv = gen () in
+        v := Some tv;
+        tv
+    | Some v -> v

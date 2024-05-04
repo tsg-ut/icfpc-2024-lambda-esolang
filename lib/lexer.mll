@@ -24,6 +24,7 @@ rule token = parse
 | '?' { QUEST }
 | '*' { ASTER }
 | num+ { NUM (int_of_string (Lexing.lexeme lexbuf)) }
+| 'i' { failwith "'i' conflicts with Iota combinator" }
 | ident { IDENT (Lexing.lexeme lexbuf) }
 | ['A'-'Z'] { COMBINATOR (Lexing.lexeme lexbuf) }
 | 'J'('0'|'1')+ { COMBINATOR (Lexing.lexeme lexbuf) }

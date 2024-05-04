@@ -1,7 +1,7 @@
 open Syntax
-open Syntax.Combinators
 open Syntax.Combinator
 open Interpreter
+open Utils
 
 let lift_fv d =
   if d = 0 then fun m -> m
@@ -13,29 +13,9 @@ let lift_fv d =
     in
     aux
 
-type com_str_fv = [ `Com of Combinators.t | `Str of string | `Fv of int ]
+let pp_ski_fv_str_combinator = Combinator.pp ComStrFv.pp
 
-let pp_com_str_fv fmt = function
-  | `Fv x -> Format.fprintf fmt "a%d" x
-  | (`Com _ | `Str (_ : string)) as v -> pp_com_str fmt v
-
-module ComStrFv_Order = struct
-  type t = com_str_fv
-
-  let compare (m : t) (n : t) =
-    match (m, n) with
-    | `Com v, `Com w -> Combinators.compare v w
-    | `Com _, (`Str _ | `Fv _) -> 1
-    | `Str _, `Com _ -> -1
-    | `Str s, `Str t -> String.compare s t
-    | `Str _, `Fv _ -> 1
-    | `Fv _, (`Com _ | `Str _) -> -1
-    | `Fv v, `Fv w -> Int.compare v w
-end
-
-let pp_ski_fv_str_combinator = Combinator.pp pp_com_str_fv
-
-let rec is_ski_free (m : com_str_fv combinator) =
+let rec is_ski_free (m : ComStrFv.com_str_fv combinator) =
   match m with
   | CVar (`Com _) -> false
   | CVar (`Str _ | `Fv _) -> true
@@ -67,7 +47,8 @@ let hash_db = Hashtbl.create 2000000
 
 let enumerate_ski ~(size : int) ~(fvn : int) =
   let table =
-    Array.make_matrix (size + 1) (fvn + 1) ([] : com_str_fv combinator list)
+    Array.make_matrix (size + 1) (fvn + 1)
+      ([] : ComStrFv.com_str_fv combinator list)
   in
 
   let register_db c =
@@ -128,15 +109,16 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
      ) res; *)
   res
 
-let _ =
-  let _ = enumerate_ski ~size:4 ~fvn:2 in
+let init_hash_db =
+  cached (fun () ->
+      let _ = enumerate_ski ~size:4 ~fvn:2 in
 
-  (* Hashtbl.iter
-     (fun h (c, _) ->
-       Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
-     hash_db; *)
-  (* assert false; *)
-  ()
+      (* Hashtbl.iter
+         (fun h (c, _) ->
+           Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
+         hash_db; *)
+      (* assert false; *)
+      ())
 
 let com_to_com_str :
     Combinators.t combinator -> [> `Com of Combinators.t ] combinator =
@@ -155,8 +137,8 @@ let com_str_to_com :
   in
   aux
 
-let enumerate_partial_repr (m : com_str_fv combinator) ~(vn : int) =
-  let rec aux (m : com_str_fv combinator) ~(vn : int) ~(off : int) =
+let enumerate_partial_repr (m : ComStrFv.com_str_fv combinator) ~(vn : int) =
+  let rec aux (m : ComStrFv.com_str_fv combinator) ~(vn : int) ~(off : int) =
     match m with
     | CVar _ ->
         if vn = 0 then [ (m, fun m -> m) ]
@@ -189,7 +171,7 @@ let enumerate_partial_repr (m : com_str_fv combinator) ~(vn : int) =
   in
   List.concat_map (fun x -> x) (List.init (vn + 1) (fun vn -> aux m ~vn ~off:0))
 
-module TermSet = Set.Make (Combinator.Order (ComStrFv_Order))
+module TermSet = Set.Make (Combinator.Order (ComStrFv.Order))
 
 let is_optimal = ref TermSet.empty
 
@@ -248,11 +230,12 @@ let optimize_with_simpler_term m =
   m
 
 let optimize m =
+  let () = init_hash_db () in
   let rec loop m cnt =
     if cnt >= 15 then m
     else
       let tm = optimize_with_simpler_term m in
-      Format.eprintf "Optimized: %a\n" (Combinator.pp pp_com_str_fv) tm;
+      Format.eprintf "Optimized: %a\n" (Combinator.pp ComStrFv.pp) tm;
       if tm = m then tm else loop tm (cnt + 1)
   in
   let m = com_to_com_str m in

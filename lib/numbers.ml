@@ -8,7 +8,8 @@ type func = Unary of (int -> int) | Binary of (int -> int -> int)
 
 (* Based on https://yshl.hatenadiary.com/entry/20081006/1223304302 *)
 
-let b_based_churchnum_table =
+let b_based_churchnum_table () =
+  assert false;
   let converts =
     [
       (Unary (fun n -> n + 1), s2comb "(S S n)");
@@ -87,13 +88,16 @@ let b_based_churchnum_table =
   done;
   btable
 
+let b_based_churchnum_table = cached b_based_churchnum_table
+
 let shortest_churchnum_table =
+  cached @@ fun () ->
   let bcom = s2comb "(S(KS)K)" in
-  Array.map (fun d -> CApp (d, bcom)) b_based_churchnum_table
+  Array.map (fun d -> CApp (d, bcom)) (b_based_churchnum_table ())
 
 let n2charchnum n =
-  if n < Array.length shortest_churchnum_table then
-    Interpreter.com_to_lambda @@ shortest_churchnum_table.(n)
+  if n < Array.length (shortest_churchnum_table ()) then
+    Interpreter.com_to_lambda @@ (shortest_churchnum_table ()).(n)
   else
     let open Syntax.Lambda in
     Format.eprintf "Generate non-optimized church num: %d\n" n;
