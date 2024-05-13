@@ -9,7 +9,6 @@ type func = Unary of (int -> int) | Binary of (int -> int -> int)
 (* Based on https://yshl.hatenadiary.com/entry/20081006/1223304302 *)
 
 let b_based_churchnum_table () =
-  assert false;
   let converts =
     [
       (Unary (fun n -> n + 1), s2comb "(S S n)");
@@ -23,7 +22,7 @@ let b_based_churchnum_table () =
   in
 
   Format.eprintf "Converters\n";
-  let n = 1300 in
+  let n = 150 in
   let tst = Array.init n (fun _ -> []) in
   List.iter
     (fun (f, m) ->
@@ -72,10 +71,12 @@ let b_based_churchnum_table () =
                (* let tm = Optimize.com_str_to_com tm in
                   let tm = Optimize.optimize tm in
                   let tm = Optimize.com_to_com_str tm in *)
-               let tl =
+
+               let tl = ShortestPp.approx_size tm in
+               (* let tl =
                  String.length
                    (Format.asprintf "%a" (pp Combinators.pp_com_str) tm)
-               in
+               in *)
                match res with
                | None -> Some (tm, tl)
                | Some (_, bl) -> if bl > tl then Some (tm, tl) else res)

@@ -55,9 +55,8 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     match generate_behavior_hash c with
     | None -> true (* XXX: Is this appropriate? *)
     | Some h -> (
-        let s = Format.asprintf "%a" pp_ski_fv_str_combinator c in
-        let l = String.length s in
-        Format.eprintf "Hash %s => %s\n" s h;
+        let l = ShortestPp.approx_size c in
+        (* Format.eprintf "Hash %s => %s\n" s h; *)
         match Hashtbl.find_opt hash_db h with
         | Some (_, cl) ->
             if cl > l then (
@@ -73,7 +72,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     List.filter register_db
     @@ List.map
          (fun v -> CVar (`Com v))
-         ([ `S; `K; `I ] @ List.init 6 (fun i -> `Jot (i + 2)));
+         ([ `S; `K; `I; `Iota] @ List.init (2+4+8+16) (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -180,8 +179,7 @@ let optimize_with_simpler_term m =
     if TermSet.mem m !is_optimal then m
     else
       let thms = enumerate_partial_repr m ~vn:2 in
-      let ms = Format.asprintf "%a" pp_ski_fv_str_combinator m in
-      let ml = String.length ms in
+      let ml = ShortestPp.approx_size m in
       (* (if String.length ms < 100 then begin
          Format.eprintf "Base %s\n" ms;
          List.iter (fun (tm,f) ->
@@ -205,10 +203,7 @@ let optimize_with_simpler_term m =
                     | None -> None
                     | Some (tm, l) ->
                         let ftm = f tm in
-                        let ftl =
-                          String.length
-                          @@ Format.asprintf "%a" pp_ski_fv_str_combinator ftm
-                        in
+                        let ftl = ShortestPp.approx_size ftm in
                         if ftl < ml then Some (ftm, tm, pm, l) else acc)
                 | None -> None))
           None thms
@@ -235,12 +230,12 @@ let optimize m =
     if cnt >= 15 then m
     else
       let tm = optimize_with_simpler_term m in
-      Format.eprintf "Optimized: %a\n" (Combinator.pp ComStrFv.pp) tm;
+      (* Format.eprintf "Optimized: %a\n" (Combinator.pp ComStrFv.pp) tm; *)
       if tm = m then tm else loop tm (cnt + 1)
   in
   let m = com_to_com_str m in
   let m = loop m 0 in
   let m = com_str_to_com m in
-  Format.eprintf "size_of_optimal: %d\n" (TermSet.cardinal !is_optimal);
+  (* Format.eprintf "size_of_optimal: %d\n" (TermSet.cardinal !is_optimal); *)
   flush_all ();
   m

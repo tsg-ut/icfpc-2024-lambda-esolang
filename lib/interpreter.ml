@@ -39,6 +39,7 @@ let reduce_comb m =
     | CApp (CApp (CVar (`Com `K), m), _) -> aux m
     | CApp (CApp (CApp (CVar (`Com `S), m), n), o) ->
         aux (CApp (CApp (m, o), CApp (n, o)))
+    | CApp (CVar (`Com `Iota), m) -> aux @@ CApp (CApp (m, CVar (`Com `S)), CVar (`Com `K))
     | CVar (`Com (`Jot x)) -> aux @@ jot2comb x
     | CVar _ as m -> m
     | CApp (m, n) as a ->

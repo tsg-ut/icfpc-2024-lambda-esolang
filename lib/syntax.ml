@@ -151,6 +151,16 @@ module Combinator = struct
     in
     aux
 
+  let rec map f = function
+    | CVar v -> CVar (f v)
+    | CApp (m, n) -> CApp (map f m, map f n)
+
+  let rec subst m v by =
+    match m with
+    | CVar w when v = w -> by
+    | CVar _ -> m
+    | CApp (m, n) -> CApp (subst m v by, subst n v by)
+
   module ShortestPp = struct
     let pp_combinator = pp
 
@@ -162,7 +172,9 @@ module Combinator = struct
 
     (* Need to ensure that size(Par(x.par)) >= size(x.nonpar) *)
     type 'a best_repr_with_parenthes =
-      | Repr of { par : 'a pp_wrapper list; nonpar : 'a pp_wrapper }
+      | Repr of {
+          par : 'a pp_wrapper list; nonpar : 'a pp_wrapper;
+          par_sealed : 'a pp_wrapper list; nonpar_sealed : 'a pp_wrapper; }
 
     let pp pp_var =
       let rec aux fmt = function
@@ -241,7 +253,8 @@ module Combinator = struct
 
     let validate_repr (Repr r) =
       match Repr r with
-      | Repr { par = [ Raw `Iota ]; nonpar = Raw `Iota } -> ()
+      | Repr { par = [ Raw `Iota ]; nonpar = Raw `Iota;
+               par_sealed = [Raw `Iota]; nonpar_sealed = Raw `Iota } -> ()
       | _ ->
           let pp = pp Combinators.pp in
           let ppe = pp_easyvalidate Combinators.pp in
@@ -267,30 +280,14 @@ module Combinator = struct
     (* ↑の解決法は、xの右端を非Jotにする or 右を()で包む、の2択  *)
 
     let shortest_wrapper =
-      let is_Jot_visible_right r =
-        let rec aux = function
-          | Raw (`Jot _) -> true
-          | Raw _ | Par _ -> false
-          | Grave (_, r) | Star (_, r) -> aux r
-        in
-        aux r
-      in
-      let seal_jot =
-        (* Assume that given repr is jot_visible_right *)
-        let rec aux = function
-          | Raw (`Jot _) as x -> (Par [ x ], 2)
-          | Raw _ | Par _ -> assert false
-          | Grave (x, y) -> (Par [ y; x ], 1)
-          | Star (Raw `Iota, y) ->
-              let ty, d = aux y in
-              (Star (Raw `Iota, ty), d)
-          | Star _ -> assert false
-        in
-        aux
-      in
       let smaller_repr r1 r2 =
         let s1 = size_of_wrapped_pp r1 in
         let s2 = size_of_wrapped_pp r2 in
+        if s1 <= s2 then r1 else r2
+      in
+      let smaller_reprs r1 r2 =
+        let s1 = size_of_wrapped_pp (Par r1) in
+        let s2 = size_of_wrapped_pp (Par r2) in
         if s1 <= s2 then r1 else r2
       in
       (* 効率を無視して最小のreprを返すようにする *)
@@ -300,42 +297,40 @@ module Combinator = struct
           match c with
           | CVar v ->
               let r = Raw v in
-              Repr { par = [ r ]; nonpar = r }
+              let sr = match v with `Jot _ -> Par [r] | _ -> r in
+              Repr { par = [ r ]; nonpar = r; par_sealed = [ sr ]; nonpar_sealed = sr}
           | CApp ((CVar `Iota as x), y) | CApp (x, (CVar `Iota as y)) ->
               let (Repr x) = aux x in
               let (Repr y) = aux y in
               let r = Star (x.nonpar, y.nonpar) in
-              Repr { par = [ r ]; nonpar = r }
+              let sr = Star (x.nonpar, y.nonpar_sealed) in
+              Repr { par = [ r ]; nonpar = r; par_sealed = [ sr ]; nonpar_sealed = sr}
           | CApp (x, CVar (`Jot _ as y)) ->
               let (Repr x) = aux x in
               let y = Raw y in
-              let par =
-                match x.par with
-                | x :: xs when is_Jot_visible_right x ->
-                    let tx, d = seal_jot x in
-                    if d < 2 then y :: tx :: xs else Par [ y ] :: x :: xs
-                | _ -> y :: x.par
-              in
-              let nonpar =
-                let p1 = Grave (x.nonpar, Par [ y ]) in
-                let p2 = Grave (Par x.par, y) in
-                let p3 =
-                  if is_Jot_visible_right x.nonpar then
-                    Grave (fst @@ seal_jot x.nonpar, y)
-                  else Grave (x.nonpar, y)
-                in
-                smaller_repr (smaller_repr p1 p2) p3
-              in
-              let nonpar = smaller_repr (Par par) nonpar in
-              Repr { par; nonpar }
+              let par_sealed = (Par [y]) :: x.par in
+              let par = smaller_reprs par_sealed (y :: x.par_sealed) in
+
+              let p1 = Grave (x.nonpar, Par [ y ]) in
+              let p2 = Grave (Par x.par, y) in
+              let p3 = Grave (x.nonpar_sealed, y) in
+              let p4 = Par par in
+              let nonpar = smaller_repr (smaller_repr p1 p2) (smaller_repr p3 p4) in
+              let nonpar_sealed = smaller_repr p1 p4 in
+
+              Repr { par; nonpar; par_sealed; nonpar_sealed}
           | CApp (x, y) ->
               let (Repr x) = aux x in
               let (Repr y) = aux y in
+
               let par = y.nonpar :: x.par in
-              let nonpar =
-                smaller_repr (Par par) (Grave (x.nonpar, y.nonpar))
-              in
-              Repr { par; nonpar }
+              let par_sealed = y.nonpar_sealed :: x.par in
+
+              let p = Par(par) in
+              let nonpar = smaller_repr p (Grave(x.nonpar,y.nonpar)) in
+              let nonpar_sealed = smaller_repr p (Grave(x.nonpar,y.nonpar_sealed)) in
+              
+              Repr { par; nonpar; par_sealed; nonpar_sealed}
         in
         validate_repr res;
         res
@@ -384,10 +379,12 @@ module Combinator = struct
       assert (s.par_sealed <= s.par + 2);
 
       assert (s.nonpar <= s.nonpar_sealed);
+      assert (s.par_sealed <= s.nonpar_sealed);
 
       assert (s.par <= s.nonpar);
       assert (s.nonpar <= s.par + 2);
       assert (s.nonpar_sealed <= s.par + 2);
+      
       ()
 
     let size =
@@ -430,8 +427,9 @@ module Combinator = struct
             *)
               let nonpar =
                 let p1 = 1 + x.nonpar + 2 + y in
-                let p2 = 1 + 2 + x.par + y in
-                let p3 = 1 + x.nonpar_sealed + y in
+                (* let p2 = 1 + 2 + x.par + y in *)
+                let p3 = 1 + x.nonpar_sealed + y in (* p3 includes p2 *)
+                let p2 = p1 in
                 min (min p1 p2) (min p3 (par + 2))
               in
               let nonpar_sealed = min (1 + x.nonpar + 2 + y) (par + 2) in
@@ -452,26 +450,20 @@ module Combinator = struct
               in
               Size { par; nonpar; par_sealed; nonpar_sealed }
         in
-        Format.eprintf "size of %a is %a\n"
+        (* Format.eprintf "size of %a is %a\n"
           (pp_combinator Combinators.pp)
-          c pp_size res;
+          c pp_size res; *)
         validate_size c res;
         res
       in
       aux
+
+      let approx_size c =
+        let c = map (function `Str _ | `Fv _ -> `D | `Com c -> c) c in
+        match (size c) with Size {par; _} -> par + 2
   end
 
   let combinator_to_str m = Format.asprintf "%a" (pp Combinators.pp) m
-
-  let rec map f = function
-    | CVar v -> CVar (f v)
-    | CApp (m, n) -> CApp (map f m, map f n)
-
-  let rec subst m v by =
-    match m with
-    | CVar w when v = w -> by
-    | CVar _ -> m
-    | CApp (m, n) -> CApp (subst m v by, subst n v by)
 
   module Order (V : Set.OrderedType) = struct
     type t = V.t combinator
