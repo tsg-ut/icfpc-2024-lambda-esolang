@@ -21,6 +21,7 @@ let _ =
   register_library "fst" (s2lam "p. p (a. b. a)");
   register_library "snd" (s2lam "p. p (a. b. b)");
   register_library "iszero" (s2lam "n. n (v. $f) $t");
+  register_library "succ" (s2lam "n. s. z. s (n s z)");
   (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)
   ()
 

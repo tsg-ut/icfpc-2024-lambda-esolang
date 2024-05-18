@@ -49,7 +49,7 @@ let reduce_comb m =
   let _pp = Combinator.pp ComStrFv.pp in
   let rec loop m =
     if Combinator.size m > base_size * 100 then raise StepLimit;
-    if !step > 1000 then raise StepLimit;
+    if !step > 10000 then raise StepLimit;
     step := !step + 1;
     let tm = reduce_comb_one_step m in
     (* Format.eprintf "Reduction: %a -> %a\n" _pp m _pp tm; *)

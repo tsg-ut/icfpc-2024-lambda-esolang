@@ -9,7 +9,7 @@ type func = Unary of (int -> int) | Binary of (int -> int -> int)
 (* Based on https://yshl.hatenadiary.com/entry/20081006/1223304302 *)
 
 let b_based_churchnum_table () =
-  assert false;
+  (* assert false; *)
   let converts =
     [
       (Unary (fun n -> n + 1), s2comb "(S S n)");
@@ -23,7 +23,7 @@ let b_based_churchnum_table () =
   in
 
   Format.eprintf "Converters\n";
-  let n = 1300 in
+  let n = 3 in
   let tst = Array.init n (fun _ -> []) in
   List.iter
     (fun (f, m) ->

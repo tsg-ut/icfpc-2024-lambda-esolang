@@ -6,6 +6,13 @@ open Syntax.Combinators
 let ( let* ) = Option.bind
 let ( let+ ) v f = Option.map f v
 
+let pp_str_fv fmt = function
+  | `Fv x -> Format.fprintf fmt "v%d" x
+  | `Str s -> Format.fprintf fmt "%s" s
+
+let com_str_to_com_str_fv =
+  Combinator.map (fun v -> match v with `Str v -> `Str v | `Com v -> `Com v)
+
 let split_start_end_with ~s h t =
   if String.starts_with ~prefix:h s && String.ends_with ~suffix:t s then
     let s = String.sub s 0 (String.length s - String.length t) in
@@ -45,21 +52,69 @@ let detect_Y_emphilically m =
   Format.eprintf "try is_Ycom: %a\n" pp m;
   loop m
 
-let reverse_constants =
-  let is_num_hash h =
-    (* Example: 2_`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0`v0v1 *)
-    Format.eprintf "h: %s\n" h;
-    let* s = split_start_end_with ~s:h "2_" "v1" in
-    Format.eprintf "h: %s\n" s;
-    let rec aux s n =
-      if String.length s = 0 then if n <= 2 then None else Some n
-      else
-        let* ts = split_start_end_with ~s "" "`v0" in
-        Format.eprintf "h: %s\n" ts;
-        aux ts (n + 1)
-    in
-    aux s 0
+let hash_to_lambda m =
+  let rec wrap_vn vn m =
+    if vn = 0 then m else wrap_vn (vn - 1) @@ Abs (`Fv (vn - 1), m)
   in
+  let conv_to_lambda =
+    let rec aux = function
+      | CVar ((`Str _ | `Fv _) as v) -> Some (Var v)
+      (* | CVar (`Com c) -> Some (Var (`Str (combinators_to_str c))) *)
+      | CVar (`Com _) -> None
+      | CApp (m, n) ->
+          let* m = aux m in
+          let* n = aux n in
+          Some (App (m, n))
+    in
+    aux
+  in
+  Optimize.generate_behavior_hash_base
+    (fun vn -> `Fv vn)
+    (fun vn m ->
+      let* m = conv_to_lambda m in
+      Some (wrap_vn vn m))
+    m
+
+let is_num_comb =
+  let rec aux m acc =
+    match m with
+    | App (Var (`Fv 0), m) -> aux m (acc + 1)
+    | Var (`Fv 1) -> Some acc
+    | _ -> None
+  in
+  let check = function
+    | Abs (`Fv 0, Var (`Fv 0)) -> Some 1
+    | Abs (`Fv 0, Abs (`Fv 1, m)) -> aux m 0
+    | _ -> None
+  in
+  fun m ->
+    let m = com_str_to_com_str_fv m in
+    let* h = hash_to_lambda m in
+    Format.eprintf "Check is_num_comb: %a => %a@." (Combinator.pp pp_com_str) m
+      (Lambda.pp pp_str_fv) h;
+    check h
+
+let is_num_func m =
+  let rec aux i acc =
+    if i >= 6 then Some acc
+    else
+      let si = Format.asprintf "*%d" i in
+      let im = Ski.ski (Var (`Str si)) in
+      let im = Combinator.map (fun c -> `Com c) im in
+      let* t = is_num_comb (CApp (m, im)) in
+      aux (i + 1) ((i, t) :: acc)
+  in
+  let* v = aux 0 [] in
+  if List.for_all (fun (x, y) -> x = y) v then None
+  else
+    Some
+      (Format.asprintf "numfun[%a]"
+         (Format.pp_print_list
+            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
+            (fun fmt (x, y) -> Format.fprintf fmt "%d -> %d" x y))
+         v)
+
+let reverse_constants =
   let pp_vn vn = `Str (Format.sprintf "v%d" vn) in
   let pp_hash vn m =
     Some (Format.asprintf "%d_%a" vn (Combinator.pp pp_com_str) m)
@@ -76,13 +131,16 @@ let reverse_constants =
   in
   let rec aux m =
     let tm =
-      let* h = Optimize.generate_behavior_hash_base pp_vn pp_hash m in
-      match is_num_hash h with
-      | None -> (
-          match List.assoc_opt h hash_of_constants with
-          | None -> None
-          | Some s -> Some (`Str s))
-      | Some v -> Some (`Str ("*" ^ string_of_int v))
+      match is_num_comb m with
+      | Some v when v >= 2 -> Some (`Str ("*" ^ string_of_int v))
+      | _ -> (
+          match is_num_func m with
+          | None -> (
+              let* h = Optimize.generate_behavior_hash_base pp_vn pp_hash m in
+              match List.assoc_opt h hash_of_constants with
+              | None -> None
+              | Some s -> Some (`Str s))
+          | Some v -> Some (`Str v))
     in
     match tm with
     | Some v -> CVar v
@@ -200,10 +258,6 @@ let lift_v d =
   in
   aux []
 
-let pp_str_fv fmt = function
-  | `Fv x -> Format.fprintf fmt "v%d" x
-  | `Str s -> Format.fprintf fmt "%s" s
-
 let simplify_lam =
   let rec aux m =
     match m with
@@ -262,9 +316,6 @@ let hash_based_reduction m =
   with
   | Some h -> h
   | None -> assert false
-
-let com_str_to_com_str_fv =
-  Combinator.map (fun v -> match v with `Str v -> `Str v | `Com v -> `Com v)
 
 let decompile m =
   let m = reverse_constants m in
