@@ -5,6 +5,6 @@
  ; in order to load library.ml
  (libraries str))
 
-(ocamllex lexer)
+(ocamllex lexer lexerLazyK)
 
-(ocamlyacc parser)
+(ocamlyacc parser parserLazyK)

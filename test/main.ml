@@ -10,7 +10,7 @@ let _random_com_str_fv ~rand =
   | 1 -> `Str (string_of_int @@ R.int rand 3)
   | _ -> `Fv (R.int rand 3)
 
-let random_comb ~rand ~size ~random_var =
+let random_comb ~rand ~size:s ~random_var =
   let open Syntax.Combinator in
   let rec aux size =
     if size = 0 then CVar (random_var ~rand)
@@ -18,7 +18,7 @@ let random_comb ~rand ~size ~random_var =
       let n = R.int rand size in
       CApp (aux n, aux (size - n - 1))
   in
-  aux size
+  aux s
 
 let random_comb ~rand ~random_var =
   let size = R.int rand 5 in

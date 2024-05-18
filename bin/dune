@@ -1,3 +1,9 @@
 (executable
  (name main)
+ (modules main)
+ (libraries str lambda_esolang))
+
+(executable
+ (name decompiler)
+ (modules decompiler)
  (libraries str lambda_esolang))

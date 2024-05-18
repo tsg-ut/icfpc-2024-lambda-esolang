@@ -15,33 +15,36 @@ let lift_fv d =
 
 let pp_ski_fv_str_combinator = Combinator.pp ComStrFv.pp
 
-let rec is_ski_free (m : ComStrFv.com_str_fv combinator) =
+let rec is_ski_free m =
   match m with
   | CVar (`Com _) -> false
-  | CVar (`Str _ | `Fv _) -> true
+  | CVar _ -> true
   | CApp (m, n) -> is_ski_free m && is_ski_free n
 
-let generate_behavior_hash m =
+let generate_behavior_hash_base vn_to_var vn_com_to_hash m =
   let rec aux vn m =
     match reduce_comb m with
     | None -> None
     | Some tm ->
         if vn > 4 then Some (vn, m)
         else if is_ski_free tm then Some (vn, tm)
-        else aux (vn + 1) (CApp (tm, CVar (`Str (Format.sprintf "v%d" vn))))
+        else aux (vn + 1) (CApp (tm, CVar (vn_to_var vn)))
   in
   match aux 0 m with
   | None -> None
   | Some (vn, m) ->
       let rec rev_eta vn m =
         match m with
-        | CApp (m, CVar (`Str s)) when s = Format.sprintf "v%d" (vn - 1) ->
-            rev_eta (vn - 1) m
+        | CApp (m, CVar v) when v = vn_to_var (vn - 1) -> rev_eta (vn - 1) m
         | CApp _ | CVar _ -> (vn, m)
       in
       let vn, m = rev_eta vn m in
-      let s = Format.asprintf "%d_%a" vn pp_ski_fv_str_combinator m in
-      Some s
+      vn_com_to_hash vn m
+
+let generate_behavior_hash =
+  generate_behavior_hash_base
+    (fun vn -> `Str (Format.sprintf "v%d" vn))
+    (fun vn m -> Some (Format.asprintf "%d_%a" vn pp_ski_fv_str_combinator m))
 
 let hash_db = Hashtbl.create 2000000
 

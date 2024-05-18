@@ -29,25 +29,34 @@ let jot2comb n =
     (CVar (`Com `I))
     v
 
-let reduce_comb m =
-  let step = ref 0 in
+let reduce_comb_one_step =
   let rec aux m =
-    if !step > 1000 then raise StepLimit;
-    step := !step + 1;
     match m with
-    | CApp (CVar (`Com `I), m) -> aux m
-    | CApp (CApp (CVar (`Com `K), m), _) -> aux m
+    | CApp (CVar (`Com `I), m) -> m
+    | CApp (CApp (CVar (`Com `K), m), _) -> m
     | CApp (CApp (CApp (CVar (`Com `S), m), n), o) ->
         aux (CApp (CApp (m, o), CApp (n, o)))
-    | CVar (`Com (`Jot x)) -> aux @@ jot2comb x
+    | CVar (`Com (`Jot x)) -> jot2comb x
     | CVar _ as m -> m
-    | CApp (m, n) as a ->
-        let b = CApp (aux m, aux n) in
-        if a = b then b else aux b
+    | CApp (m, n) -> CApp (aux m, aux n)
   in
-  let _pp = Combinator.pp pp_com_str in
+  aux
+
+let reduce_comb m =
+  let base_size = Combinator.size m in
+  let step = ref 0 in
+
+  let _pp = Combinator.pp ComStrFv.pp in
+  let rec loop m =
+    if Combinator.size m > base_size * 100 then raise StepLimit;
+    if !step > 1000 then raise StepLimit;
+    step := !step + 1;
+    let tm = reduce_comb_one_step m in
+    (* Format.eprintf "Reduction: %a -> %a\n" _pp m _pp tm; *)
+    if tm = m then m else loop tm
+  in
   try
-    let tm = aux m in
+    let tm = loop m in
     (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)
     Some tm
   with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)

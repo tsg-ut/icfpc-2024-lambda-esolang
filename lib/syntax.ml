@@ -14,6 +14,14 @@ module Lambda = struct
     in
     aux
 
+  let pp_with_indent pp_var =
+    let rec aux fmt = function
+      | Var v -> Format.fprintf fmt "%a" pp_var v
+      | Abs (v, m) -> Format.fprintf fmt "@[<2>(%a.@;%a@]@;)" pp_var v aux m
+      | App (m, n) -> Format.fprintf fmt "@[<2>(@;%a@;%a@]@;)" aux m aux n
+    in
+    aux
+
   let rec is_free m v =
     match m with
     | Var w -> v <> w
@@ -24,6 +32,18 @@ module Lambda = struct
     | Var v -> Var (f v)
     | Abs (v, m) -> Abs (f v, map f m)
     | App (m, n) -> App (map f m, map f n)
+
+  let rec subst m x n =
+    match m with
+    | Var y -> if x = y then n else m
+    | Abs (y, m) -> if x = y then m else Abs (y, subst m x n)
+    | App (m, o) -> App (subst m x n, subst o x n)
+
+  let rec count m x =
+    match m with
+    | Var y -> if x = y then 1 else 0
+    | Abs (y, m) -> if x = y then 0 else count m x
+    | App (m, n) -> count m x + count n x
 end
 
 module Combinators = struct
@@ -65,8 +85,11 @@ module Combinators = struct
     | "S" -> `S
     | "K" -> `K
     | "I" -> `I
+    | "s" -> `S
+    | "k" -> `K
+    | "i" -> `I
     | "D" -> `D
-    | "i" -> `Iota
+    (* | "i" -> `Iota *)
     | s when String.get s 0 = 'J' ->
         let s = String.sub s 1 (String.length s - 1) in
         `Jot (jotstr2n s)
@@ -88,7 +111,7 @@ module Combinators = struct
 
   let pp_com_str fmt v =
     Format.fprintf fmt "%s"
-    @@ match v with `Com c -> combinators_to_str c | `Str s -> s
+    @@ match v with `Com (c : t) -> combinators_to_str c | `Str s -> s
 
   let compare c d =
     match (c, d) with
@@ -150,6 +173,8 @@ module Combinator = struct
               Format.fprintf fmt ")")
     in
     aux
+
+  let rec size = function CVar _ -> 1 | CApp (m, n) -> size m + size n
 
   module ShortestPp = struct
     let pp_combinator = pp

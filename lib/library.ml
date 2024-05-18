@@ -18,6 +18,10 @@ let _ =
   register_library "f" (s2lam "a. b. b");
   register_library "cons" (s2lam "a. b. f. f a b");
   register_library "cons2" (s2lam "b. a. f. f a b");
+  register_library "fst" (s2lam "p. p (a. b. a)");
+  register_library "snd" (s2lam "p. p (a. b. b)");
+  register_library "iszero" (s2lam "n. n (v. $f) $t");
+  (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)
   ()
 
 (* #一文字の数字に変換する *)

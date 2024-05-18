@@ -1,6 +1,13 @@
 %{
   open Syntax.Lambda
   open Syntax.Combinators
+
+  let list2sum f = function
+    | [] -> assert false
+    | x :: xs -> List.fold_left f x xs
+  
+  let list2Apps = list2sum (fun m n -> App(m,n))
+
 %}
 
 %token <string> IDENT COMBINATOR DOLLAR
@@ -17,11 +24,7 @@ main:
 ;
 expr:
 | IDENT DOT expr { Abs(`Str $1,$3) }
-| term_list {
-    match $1 with
-    | [] -> assert false
-    | x :: xs -> List.fold_left (fun m n -> App(m,n)) x xs
-  }
+| term_list { list2Apps $1 }
 ;
 term_list:
 | term term_list { $1 :: $2 }
