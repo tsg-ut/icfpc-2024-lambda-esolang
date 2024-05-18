@@ -113,26 +113,26 @@ let hoist_abs_with_x m x =
 
 let reverse_ski =
   let rec aux m =
-    let mm = m in
+    let _mm = m in
     match m with
     | CVar (`Str s) -> Var (`Str s)
-    (* | CVar (`Com `I) -> Var (`Str "I")
-       | CVar (`Com `K) -> Var (`Str "K")
-       | CVar (`Com `S) -> Var (`Str "S") *)
-    | CVar (`Com `I) ->
-        let x = gen_fv () in
-        Abs (x, Var x)
-    | CVar (`Com `K) ->
-        let x = gen_fv () in
-        let y = gen_fv () in
-        Abs (x, Abs (y, Var x))
-    | CVar (`Com `S) ->
-        let x = gen_fv () in
-        let y = gen_fv () in
-        let z = gen_fv () in
-        Abs (x, Abs (y, Abs (z, App (App (Var x, Var z), App (Var y, Var z)))))
+    | CVar (`Com `I) -> Var (`Str "I")
+    | CVar (`Com `K) -> Var (`Str "K")
+    | CVar (`Com `S) -> Var (`Str "S")
+    (* | CVar (`Com `I) ->
+           let x = gen_fv () in
+           Abs (x, Var x)
+       | CVar (`Com `K) ->
+           let x = gen_fv () in
+           let y = gen_fv () in
+           Abs (x, Abs (y, Var x))
+       | CVar (`Com `S) ->
+           let x = gen_fv () in
+           let y = gen_fv () in
+           let z = gen_fv () in
+           Abs (x, Abs (y, Abs (z, App (App (Var x, Var z), App (Var y, Var z))))) *)
     | CVar (`Com (`Jot _)) -> failwith "Jot decompile isn't implemented yet"
-    | CApp (CApp (CVar (`Com `S), m), n) -> (
+    (* | CApp (CApp (CVar (`Com `S), m), n) -> (
         match
           let x = gen_fv () in
           let* m = hoist_abs_with_x (aux m) x in
@@ -140,7 +140,7 @@ let reverse_ski =
           Some (Abs (x, App (m, n)))
         with
         | None -> recursively mm
-        | Some m -> m)
+        | Some m -> m) *)
     | m -> (
         let rec wrap_vn vn m =
           if vn = 0 then m else wrap_vn (vn - 1) @@ Abs (`Fv (vn - 1), m)
@@ -148,8 +148,8 @@ let reverse_ski =
         let conv_to_lambda =
           let rec aux = function
             | CVar ((`Str _ | `Fv _) as v) -> Some (Var v)
-            (* | CVar (`Com c) -> Some (Var (`Str (combinators_to_str c))) *)
-            | CVar (`Com _) -> None
+            | CVar (`Com c) -> Some (Var (`Str (combinators_to_str c)))
+            (* | CVar (`Com _) -> None *)
             | CApp (m, n) ->
                 let* m = aux m in
                 let* n = aux n in
@@ -269,8 +269,11 @@ let com_str_to_com_str_fv =
 let decompile m =
   let m = reverse_constants m in
   let m = com_str_to_com_str_fv m in
-  (* let m = hash_based_reduction m in *)
+  Format.printf "After reverse consts : %a\n" (Combinator.pp ComStrFv.pp) m;
+  (* let m = hash_based_reduction m in
+     Format.eprintf "After Hash based reduction: %a\n" (Lambda.pp_with_indent pp_str_fv) m; *)
   let m = reverse_ski m in
-  let _m = simplify_lam m in
-  Format.eprintf "%a\n" (Lambda.pp_with_indent pp_str_fv) m;
+  Format.printf "After reverse_ski: %a\n" (Lambda.pp_with_indent pp_str_fv) m;
+  let m = simplify_lam m in
+  Format.printf "After simplify: %a\n" (Lambda.pp_with_indent pp_str_fv) m;
   exit 0
