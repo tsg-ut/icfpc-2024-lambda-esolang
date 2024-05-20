@@ -58,7 +58,8 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     match generate_behavior_hash c with
     | None -> true (* XXX: Is this appropriate? *)
     | Some h -> (
-        let l = ShortestPp.approx_size c in
+        (* let l = ShortestPp.approx_size c in *)
+        let l = ShortestPp.str_based_size c in
         (* Format.eprintf "Hash %s => %s\n" s h; *)
         match Hashtbl.find_opt hash_db h with
         | Some (_, cl) ->
@@ -75,7 +76,8 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     List.filter register_db
     @@ List.map
          (fun v -> CVar (`Com v))
-         ([ `S; `K; `I; `Iota] @ List.init (2+4+8+16) (fun i -> `Jot (i + 2)));
+         ([ `S; `K; `I; `Iota ]
+         @ List.init (2 + 4 + 8 + 16) (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -113,7 +115,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
 
 let init_hash_db =
   cached (fun () ->
-      let _ = enumerate_ski ~size:4 ~fvn:2 in
+      let _ = enumerate_ski ~size:3 ~fvn:2 in
 
       (* Hashtbl.iter
          (fun h (c, _) ->
@@ -181,8 +183,9 @@ let optimize_with_simpler_term m =
   let rec aux m =
     if TermSet.mem m !is_optimal then m
     else
-      let thms = enumerate_partial_repr m ~vn:2 in
-      let ml = ShortestPp.approx_size m in
+      (* let ml = ShortestPp.approx_size m in *)
+      let ml = ShortestPp.str_based_size m in
+      let thms = if ml < 100 then enumerate_partial_repr m ~vn:2 else [] in
       (* (if String.length ms < 100 then begin
          Format.eprintf "Base %s\n" ms;
          List.iter (fun (tm,f) ->
@@ -206,7 +209,8 @@ let optimize_with_simpler_term m =
                     | None -> None
                     | Some (tm, l) ->
                         let ftm = f tm in
-                        let ftl = ShortestPp.approx_size ftm in
+                        (* let ftl = ShortestPp.approx_size ftm in *)
+                        let ftl = ShortestPp.str_based_size ftm in
                         if ftl < ml then Some (ftm, tm, pm, l) else acc)
                 | None -> None))
           None thms

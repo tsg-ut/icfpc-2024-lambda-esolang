@@ -25,7 +25,12 @@ let _ =
   register_library "pred"
     (s2lam "(n. $snd (n (p. $cons ($succ ($fst p)) ($fst p)) ($cons *0 *0)))");
   register_library "add" (s2lam "(n. m. s. z. n s (m s z))");
-  register_library "mult" (s2lam "(n. m. s. z. n (m s) z)");
+  register_library "mul" (s2lam "(n. m. s. z. n (m s) z)");
+
+  (* Scott encoded list *)
+  register_library "seof" (s2lam "(f. (K K))");
+  register_library "scons2" (s2lam "(a. b. c. f. f a b (c f))");
+
   (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)
   ()
 

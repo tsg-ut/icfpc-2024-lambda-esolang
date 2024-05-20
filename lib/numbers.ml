@@ -23,7 +23,7 @@ let b_based_churchnum_table () =
   in
 
   Format.eprintf "Converters\n";
-  let n = 150 in
+  let n = 50 in
   let tst = Array.init n (fun _ -> []) in
   List.iter
     (fun (f, m) ->
@@ -69,15 +69,16 @@ let b_based_churchnum_table () =
                let ta = btable.(a) in
                let tb = btable.(b) in
                let tm = subst (subst m (`Str "m") ta) (`Str "n") tb in
+
                (* let tm = Optimize.com_str_to_com tm in
                   let tm = Optimize.optimize tm in
                   let tm = Optimize.com_to_com_str tm in *)
-
                let tl = ShortestPp.approx_size tm in
+               (* let tl = ShortestPp.str_based_size tm in *)
                (* let tl =
-                 String.length
-                   (Format.asprintf "%a" (pp Combinators.pp_com_str) tm)
-               in *)
+                    String.length
+                      (Format.asprintf "%a" (pp Combinators.pp_com_str) tm)
+                  in *)
                match res with
                | None -> Some (tm, tl)
                | Some (_, bl) -> if bl > tl then Some (tm, tl) else res)
