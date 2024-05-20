@@ -20,8 +20,8 @@ let random_comb ~rand ~size:s ~random_var =
   in
   aux s
 
-let random_comb ~rand ~random_var =
-  let size = R.int rand 5 in
+let random_comb ~rand ~random_var ~maxsize =
+  let size = R.int rand maxsize in
   random_comb ~rand ~size ~random_var
 
 let enumerate_all_possible_reprs =
@@ -58,7 +58,7 @@ let test_shortest_combs_pp () =
   let rand = R.make [| 314 |] in
   let ppp = Syntax.(Combinator.ShortestPp.pp Combinators.pp) in
   for _ = 1 to 10000 do
-    let c = random_comb ~rand ~random_var:random_ski in
+    let c = random_comb ~rand ~random_var:random_ski ~maxsize:6 in
     let all_pps = enumerate_all_possible_reprs c in
     let open Syntax.Combinator.ShortestPp in
     let (Repr best_pp) = shortest_wrapper c in
@@ -79,7 +79,7 @@ let test_size_of_pp () =
   let rand = R.make [| 314 |] in
   let pp = Syntax.(Combinator.ShortestPp.pp Combinators.pp) in
   for _ = 1 to 10000 do
-    let c = random_comb ~rand ~random_var:random_ski in
+    let c = random_comb ~rand ~random_var:random_ski ~maxsize:30 in
     let (Repr c_wrapped) = Syntax.Combinator.ShortestPp.shortest_wrapper c in
     (let s = Format.asprintf "%a" pp c_wrapped.nonpar in
      let l1 = String.length s in
