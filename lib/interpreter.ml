@@ -62,7 +62,32 @@ let reduce_comb m =
   with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
                     None
 
-let rec size = function
-  | Var _ -> 1
-  | Abs (_, m) -> size m + 1
-  | App (m, n) -> size m + size n + 1
+let reduce_lambda_one_step m =
+  let rec aux m =
+    match m with
+    | Var _ -> m
+    | App (Abs (`Fv x, m), n) -> Lambda.fv_safe_subst m x n
+    | Abs (x, m) -> Abs (x, aux m)
+    | App (m, n) -> App (aux m, aux n)
+  in
+  aux m
+
+let reduce_lambda m =
+  let base_size = Lambda.size m in
+  let step = ref 0 in
+
+  (* let _pp = Combinator.pp ComStrFv.pp in *)
+  let rec loop m =
+    if Lambda.size m > base_size * 100 then raise StepLimit;
+    if !step > 10000 then raise StepLimit;
+    step := !step + 1;
+    let tm = reduce_lambda_one_step m in
+    (* Format.eprintf "Reduction: %a -> %a\n" _pp m _pp tm; *)
+    if tm = m then m else loop tm
+  in
+  try
+    let tm = loop m in
+    (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)
+    Some tm
+  with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
+                    None

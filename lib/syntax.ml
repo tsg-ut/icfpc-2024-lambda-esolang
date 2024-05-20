@@ -44,6 +44,69 @@ module Lambda = struct
     | Var y -> if x = y then 1 else 0
     | Abs (y, m) -> if x = y then 0 else count m x
     | App (m, n) -> count m x + count n x
+
+  let rec size = function
+    | Var _ -> 1
+    | Abs (_, m) -> size m + 1
+    | App (m, n) -> size m + size n
+
+  let abs_lift d =
+    let rec aux env m =
+      match m with
+      | Var (`Fv v) when List.mem v env -> Var (`Fv (v + d))
+      | Var _ -> m
+      | Abs (`Fv x, m) -> Abs (`Fv (x + d), aux (x :: env) m)
+      | Abs (x, m) -> Abs (x, aux env m)
+      | App (m, n) -> App (aux env m, aux env n)
+    in
+    aux []
+
+  let max_free_fv m =
+    let rec aux env = function
+      | Var (`Fv v) -> if List.mem v env then 0 else v
+      | Var _ -> 0
+      | Abs (`Fv x, m) -> aux (x :: env) m
+      | Abs (_, m) -> aux env m
+      | App (m, n) -> max (aux env m) (aux env n)
+    in
+    aux [] m
+
+  let free_fvs m =
+    let rec aux env = function
+      | Var (`Fv v) -> if List.mem v env then [] else [ v ]
+      | Var _ -> []
+      | Abs (`Fv x, m) -> aux (x :: env) m
+      | Abs (_, m) -> aux env m
+      | App (m, n) -> aux env m @ aux env n
+    in
+    aux [] m
+
+  let gen_gen_fv start =
+    let i = ref start in
+    fun () ->
+      let res = !i in
+      i := !i + 1;
+      `Fv res
+
+  (* m中でnの自由変数が束縛されかかった場合は、mのほうのabsを十分な高さまで持ち上げる *)
+  let fv_safe_subst m x n =
+    let max_fv = max (max_free_fv m) (max_free_fv n) in
+    let gen_fv = gen_gen_fv (max_fv + 1) in
+    let n_fvs = free_fvs n in
+    let rec aux m =
+      match m with
+      | Var y -> if `Fv x = y then n else m
+      | Abs (`Fv y, m) as mm ->
+          if x = y then mm
+          else if List.mem y n_fvs then
+            let ty = gen_fv () in
+            let m = subst m (`Fv y) (Var ty) in
+            Abs (ty, aux m)
+          else Abs (`Fv y, aux m)
+      | Abs (y, m) -> Abs (y, aux m)
+      | App (m, n) -> App (aux m, aux n)
+    in
+    aux m
 end
 
 module Combinators = struct

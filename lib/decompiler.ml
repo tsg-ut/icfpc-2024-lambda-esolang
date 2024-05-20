@@ -94,25 +94,56 @@ let is_num_comb =
       (Lambda.pp pp_str_fv) h;
     check h
 
-let is_num_func m =
-  let rec aux i acc =
-    if i >= 6 then Some acc
-    else
-      let si = Format.asprintf "*%d" i in
-      let im = Ski.ski (Var (`Str si)) in
-      let im = Combinator.map (fun c -> `Com c) im in
-      let* t = is_num_comb (CApp (m, im)) in
-      aux (i + 1) ((i, t) :: acc)
+let is_num_func_narg m args =
+  let rec aux args acc =
+    match args with
+    | [] -> Some acc
+    | arg :: args ->
+        let ims =
+          List.map
+            (fun i ->
+              let si = Format.asprintf "*%d" i in
+              let im = Ski.ski (Var (`Str si)) in
+              let im = Combinator.map (fun c -> `Com c) im in
+              im)
+            arg
+        in
+        let* t =
+          is_num_comb (List.fold_left (fun m im -> CApp (m, im)) m ims)
+        in
+        aux args ((arg, t) :: acc)
   in
-  let* v = aux 0 [] in
-  if List.for_all (fun (x, y) -> x = y) v then None
+  let* v = aux args [] in
+  let non_num_funcs =
+    [
+      (fun (x, y) -> x = [ y ]);
+      (fun (x, y) -> match x with [ x1; _ ] when x1 = y -> true | _ -> false);
+      (fun (x, y) -> match x with [ _; x2 ] when x2 = y -> true | _ -> false);
+    ]
+  in
+  if List.exists (fun f -> List.for_all f v) non_num_funcs then None
   else
     Some
       (Format.asprintf "numfun[%a]"
          (Format.pp_print_list
             ~pp_sep:(fun fmt () -> Format.fprintf fmt ";")
-            (fun fmt (x, y) -> Format.fprintf fmt "%d -> %d" x y))
+            (fun fmt (x, y) ->
+              Format.fprintf fmt "{%a} -> %d"
+                (Format.pp_print_list
+                   ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
+                   Format.pp_print_int)
+                x y))
          v)
+
+let is_num_func m =
+  let _ = m in
+  None
+(* match is_num_func_narg m (List.init 6 (fun i -> [i])) with
+   | None ->
+     (* None *)
+     let args = [[3;1];[4;1];[5;9];[2;6];[5;3];[5;8];[9;7]] in
+     is_num_func_narg m args
+   | Some s -> Some s *)
 
 let reverse_constants =
   let pp_vn vn = `Str (Format.sprintf "v%d" vn) in
@@ -150,13 +181,6 @@ let reverse_constants =
   in
   aux
 
-let gen_fv =
-  let i = ref 0 in
-  fun () ->
-    let res = !i in
-    i := !i + 1;
-    `Fv res
-
 let hoist_abs_with_x m x =
   let rec aux m =
     match m with
@@ -170,25 +194,26 @@ let hoist_abs_with_x m x =
   aux m
 
 let reverse_ski =
+  let gen_fv = Lambda.gen_gen_fv 0 in
   let rec aux m =
     let _mm = m in
     match m with
     | CVar (`Str s) -> Var (`Str s)
-    | CVar (`Com `I) -> Var (`Str "I")
-    | CVar (`Com `K) -> Var (`Str "K")
-    | CVar (`Com `S) -> Var (`Str "S")
-    (* | CVar (`Com `I) ->
-           let x = gen_fv () in
-           Abs (x, Var x)
-       | CVar (`Com `K) ->
-           let x = gen_fv () in
-           let y = gen_fv () in
-           Abs (x, Abs (y, Var x))
-       | CVar (`Com `S) ->
-           let x = gen_fv () in
-           let y = gen_fv () in
-           let z = gen_fv () in
-           Abs (x, Abs (y, Abs (z, App (App (Var x, Var z), App (Var y, Var z))))) *)
+    (* | CVar (`Com `I) -> Var (`Str "I")
+       | CVar (`Com `K) -> Var (`Str "K")
+       | CVar (`Com `S) -> Var (`Str "S") *)
+    | CVar (`Com `I) ->
+        let x = gen_fv () in
+        Abs (x, Var x)
+    | CVar (`Com `K) ->
+        let x = gen_fv () in
+        let y = gen_fv () in
+        Abs (x, Abs (y, Var x))
+    | CVar (`Com `S) ->
+        let x = gen_fv () in
+        let y = gen_fv () in
+        let z = gen_fv () in
+        Abs (x, Abs (y, Abs (z, App (App (Var x, Var z), App (Var y, Var z)))))
     | CVar (`Com (`Jot _)) -> failwith "Jot decompile isn't implemented yet"
     (* | CApp (CApp (CVar (`Com `S), m), n) -> (
         match
@@ -206,8 +231,8 @@ let reverse_ski =
         let conv_to_lambda =
           let rec aux = function
             | CVar ((`Str _ | `Fv _) as v) -> Some (Var v)
-            | CVar (`Com c) -> Some (Var (`Str (combinators_to_str c)))
-            (* | CVar (`Com _) -> None *)
+            (* | CVar (`Com c) -> Some (Var (`Str (combinators_to_str c))) *)
+            | CVar (`Com _) -> None
             | CApp (m, n) ->
                 let* m = aux m in
                 let* n = aux n in
@@ -240,39 +265,23 @@ let reverse_ski =
   in
   aux
 
-let rec max_v = function
-  | Var (`Fv v) -> v
-  | Var _ -> 0
-  | Abs (`Fv x, m) -> max x (max_v m)
-  | Abs (_, m) -> max_v m
-  | App (m, n) -> max (max_v m) (max_v n)
-
-let lift_v d =
-  let rec aux env m =
-    match m with
-    | Var (`Fv v) when List.mem v env -> Var (`Fv (v + d))
-    | Var _ -> m
-    | Abs (`Fv x, m) -> Abs (`Fv (x + d), aux (x :: env) m)
-    | Abs (x, m) -> Abs (x, aux env m)
-    | App (m, n) -> App (aux env m, aux env n)
-  in
-  aux []
+let try_simplify_by_reduction m =
+  let* tm = Interpreter.reduce_lambda m in
+  if Lambda.size tm < Lambda.size m then Some tm else None
 
 let simplify_lam =
   let rec aux m =
     match m with
-    | App (Abs (x, m), n)
-      when Lambda.count m x <= 1 || match n with Var _ -> true | _ -> false ->
+    | App (Abs (`Fv x, m), n)
+      when Lambda.count m (`Fv x) <= 1
+           || match n with Var _ -> true | _ -> false ->
         (* Format.eprintf "com: %a / count: %d\n"
            (Lambda.pp pp_str_fv) m (Lambda.count m x); *)
-        let d = max_v m in
-        let n = lift_v (d + 1) n in
-        Lambda.subst m x n
-    (* | App(Abs _,_) ->
-        begin match try_simplify_by_reduction m with
+        Lambda.fv_safe_subst m x n
+    | App (_, _) -> (
+        match try_simplify_by_reduction m with
         | Some tm -> tm
-        | None -> recursively m
-        end *)
+        | None -> recursively m)
     | _ -> recursively m
   and recursively m =
     match m with
