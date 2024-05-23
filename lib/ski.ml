@@ -28,7 +28,12 @@ let ski (m : Combinators.com_str lambda) : Combinators.t combinator =
         with Not_found -> failwith ("Undefined variable $" ^ s))
     | Var (`Str s) when String.get s 0 = '*' ->
         let n = int_of_string @@ String.sub s 1 (String.length s - 1) in
-        let res = aux @@ n2charchnum n in
+        let res = aux @@ n2charchnum n  ~add_bcom:true in
+        Format.eprintf "Numconv: %d => %a\n" n pp res;
+        res
+    | Var (`Str s) when String.get s 0 = '#' ->
+        let n = int_of_string @@ String.sub s 1 (String.length s - 1) in
+        let res = aux @@ n2charchnum n ~add_bcom:false in
         Format.eprintf "Numconv: %d => %a\n" n pp res;
         res
     | Var _ -> m

@@ -12,27 +12,28 @@ let b_based_churchnum_table () =
   (* assert false; *)
   let converts =
     [
-      (Unary (fun n -> n + 1), s2comb "(S S n)");
-      (Binary (fun m n -> m + n), s2comb "(S (S m S) n)");
-      (Binary (fun m n -> n * m), s2comb "(S (S I m) n)");
+      (Unary (fun n -> n + 1), "(n + 1)", s2comb "(S S n)");
+      (Binary (fun m n -> m + n),"(m + n)", s2comb "(S (S m S) n)");
+      (Binary (fun m n -> n * m),"(n * m)", s2comb "(S (S I m) n)");
       (* (Unary (fun n -> n * n), s2comb "(S (S S J0) n)"); *)
-      (Binary (fun m n -> pow m n), s2comb "(S n m)");
-      (Unary (fun m -> pow m m), s2comb "(S S I m)");
-      (Unary (fun n -> n * (n + 1)), s2comb "(S (S S S) n)");
+      (Binary (fun m n -> pow m n),"(pow m n)", s2comb "(S n m)");
+      (Unary (fun m -> pow m m),"((x. pow x x) m)", s2comb "(S S I m)");
+      (Unary (fun n -> n * (n + 1)),"((x. x * (x + 1)) m)", s2comb "(S (S S S) n)");
     ]
   in
 
   Format.eprintf "Converters\n";
-  let n = 50 in
+  let n = 100 in
   let tst = Array.init n (fun _ -> []) in
   List.iter
-    (fun (f, m) ->
+    (fun (f, s, m) ->
       match f with
       | Unary f ->
           let rec fori i =
             let tf = f i in
             if tf < n && i < n then (
-              tst.(tf) <- (i, i, m) :: tst.(tf);
+              let s = s ^ (Format.sprintf " %d" i) in
+              tst.(tf) <- (i, i, s, m) :: tst.(tf);
               fori (i + 1))
             else ()
           in
@@ -42,7 +43,8 @@ let b_based_churchnum_table () =
             (let rec forj j =
                let tf = f i j in
                if tf < n && j < n then (
-                 tst.(tf) <- (i, j, m) :: tst.(tf);
+                let s = s ^ (Format.sprintf " %d %d" i j) in
+                 tst.(tf) <- (i, j, s, m) :: tst.(tf);
                  forj (j + 1))
                else ()
              in
@@ -62,7 +64,7 @@ let b_based_churchnum_table () =
     let tm =
       tst.(i)
       |> List.fold_left
-           (fun res (a, b, m) ->
+           (fun res (a, b, s, m) ->
              if a >= i || b >= i then res
              else
                (* Format.eprintf "%d <- %d %d | %a\n" i a b (pp_option (pp_combinator pp_string)) res; *)
@@ -80,12 +82,12 @@ let b_based_churchnum_table () =
                       (Format.asprintf "%a" (pp Combinators.pp_com_str) tm)
                   in *)
                match res with
-               | None -> Some (tm, tl)
-               | Some (_, bl) -> if bl > tl then Some (tm, tl) else res)
+               | None -> Some (tm, s, tl)
+               | Some (_, _, bl) -> if bl > tl then Some (tm, s, tl) else res)
            None
     in
-    let tm, _ = Option.get tm in
-    Format.eprintf "%d %a\n" i (pp Syntax.Combinators.pp_com_str) tm;
+    let tm, s, _ = Option.get tm in
+    Format.eprintf "%d %a (%s)\n" i (pp Syntax.Combinators.pp_com_str) tm s;
     flush_all ();
     btable.(i) <- tm
   done;
@@ -94,13 +96,13 @@ let b_based_churchnum_table () =
 let b_based_churchnum_table = cached b_based_churchnum_table
 
 let shortest_churchnum_table =
-  cached @@ fun () ->
+  cached @@ fun () ~add_bcom ->
   let bcom = s2comb "(S(KS)K)" in
-  Array.map (fun d -> CApp (d, bcom)) (b_based_churchnum_table ())
+  Array.map (fun d -> if add_bcom then CApp (d, bcom) else d) (b_based_churchnum_table ())
 
-let n2charchnum n =
-  if n < Array.length (shortest_churchnum_table ()) then
-    Interpreter.com_to_lambda @@ (shortest_churchnum_table ()).(n)
+let n2charchnum n ~add_bcom =
+  if n < Array.length (shortest_churchnum_table () ~add_bcom) then
+    Interpreter.com_to_lambda @@ (shortest_churchnum_table () ~add_bcom).(n)
   else
     let open Syntax.Lambda in
     Format.eprintf "Generate non-optimized church num: %d\n" n;

@@ -13,7 +13,7 @@
 %token <string> IDENT COMBINATOR DOLLAR
 %token <int> NUM
 %token <char> PUTC
-%token DOT LPAR RPAR QUEST ASTER EOF ARROW
+%token DOT LPAR RPAR QUEST ASTER HASH EOF ARROW
 %right ARROW
 
 %start main
@@ -35,6 +35,7 @@ term:
 | PUTC { Var (`Str ("." ^ String.make 1 $1)) }
 | COMBINATOR { Var (`Com (str_to_combinators $1)) }
 | ASTER NUM { Var (`Str("*" ^ string_of_int $2)) }
+| HASH NUM { Var (`Str("#" ^ string_of_int $2)) }
 | DOLLAR { Var (`Str("$" ^ $1)) }
 | LPAR expr RPAR { $2 }
 ;

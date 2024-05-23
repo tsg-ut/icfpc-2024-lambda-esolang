@@ -15,7 +15,8 @@ let s2lam s =
 let _ =
   (* register_library "$t" (s2lam "a. b. a"); *)
   register_library "t" (s2lam "K");
-  register_library "f" (s2lam "a. b. b");
+  (* register_library "f" (s2lam "a. b. b"); *)
+  register_library "f" (s2lam "J0");
   register_library "cons" (s2lam "a. b. f. f a b");
   register_library "cons2" (s2lam "b. a. f. f a b");
   register_library "fst" (s2lam "p. p (a. b. a)");
@@ -27,9 +28,20 @@ let _ =
   register_library "add" (s2lam "(n. m. s. z. n s (m s z))");
   register_library "mul" (s2lam "(n. m. s. z. n (m s) z)");
 
+	register_library "ycom" (s2lam "(f. (x. f (x x)) (x. f (x x)))");
+
   (* Scott encoded list *)
   register_library "seof" (s2lam "(f. (K K))");
   register_library "scons2" (s2lam "(a. b. c. f. f a b (c f))");
+
+	(* B based number calculations *)
+	register_library "bcom" (s2lam "(a. b. c. a (b c))");
+	register_library "addb" (s2lam "(n. m. (S (S m S) n))");
+	register_library "mulb" (s2lam "(n. m. (S (S I m) n))");
+
+
+	register_library "isicom" (s2lam "(m. m K K K I $f $t)");
+	register_library "isscom" (s2lam "(m. m I I K I)");
 
   (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)
   ()

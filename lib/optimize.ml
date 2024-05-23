@@ -77,7 +77,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     @@ List.map
          (fun v -> CVar (`Com v))
          ([ `S; `K; `I; `Iota ]
-         @ List.init (2 + 4 + 8 + 16) (fun i -> `Jot (i + 2)));
+         @ List.init (2 + 4 + 8) (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -115,7 +115,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
 
 let init_hash_db =
   cached (fun () ->
-      let _ = enumerate_ski ~size:3 ~fvn:2 in
+      let _ = enumerate_ski ~size:4 ~fvn:2 in
 
       (* Hashtbl.iter
          (fun h (c, _) ->
@@ -167,7 +167,7 @@ let enumerate_partial_repr (m : ComStrFv.com_str_fv combinator) ~(vn : int) =
                         then (CApp (m, lift_fv (-1) n), fun o -> fm o) :: base
                         else base)
                       tn)
-                  tm)
+                  tm |> List.filter (fun (x,_) -> ShortestPp.str_based_size x < 30))
             |> List.concat_map (fun x -> x)
           in
           if vn = 1 then (CVar (`Fv off), fun n -> subst n (`Fv off) o) :: rems
@@ -185,7 +185,7 @@ let optimize_with_simpler_term m =
     else
       (* let ml = ShortestPp.approx_size m in *)
       let ml = ShortestPp.str_based_size m in
-      let thms = if ml < 100 then enumerate_partial_repr m ~vn:2 else [] in
+      let thms = enumerate_partial_repr m ~vn:2 in
       (* (if String.length ms < 100 then begin
          Format.eprintf "Base %s\n" ms;
          List.iter (fun (tm,f) ->
@@ -220,6 +220,7 @@ let optimize_with_simpler_term m =
           Format.eprintf "Reduce %a => %a by %a with pm %a\n"
             pp_ski_fv_str_combinator m pp_ski_fv_str_combinator tm
             pp_ski_fv_str_combinator h pp_ski_fv_str_combinator pm;
+          flush_all ();
           tm
       | _ ->
           let res =

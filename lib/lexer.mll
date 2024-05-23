@@ -23,6 +23,7 @@ rule token = parse
 | ')' { RPAR }
 | '?' { QUEST }
 | '*' { ASTER }
+| '#' { HASH }
 | num+ { NUM (int_of_string (Lexing.lexeme lexbuf)) }
 | 'i' { failwith "'i' conflicts with Iota combinator" }
 | ident { IDENT (Lexing.lexeme lexbuf) }
