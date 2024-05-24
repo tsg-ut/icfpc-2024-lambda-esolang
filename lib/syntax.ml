@@ -7,12 +7,26 @@ module Lambda = struct
   let pp_var fmt v = Format.fprintf fmt "%s" v
 
   let pp pp_var =
-    let rec aux fmt = function
+    let rec aux ~par fmt = function
       | Var v -> Format.fprintf fmt "%a" pp_var v
-      | Abs (v, m) -> Format.fprintf fmt "(%a. %a)" pp_var v aux m
-      | App (m, n) -> Format.fprintf fmt "(%a %a)" aux m aux n
+      | Abs (v, m) ->
+          (if par then Format.fprintf fmt "(%a. %a)"
+           else Format.fprintf fmt "%a. %a")
+            pp_var v (aux ~par:false) m
+      | App (m, n) ->
+          let ms : 'a lambda list =
+            let rec aux d =
+              match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
+            in
+            List.rev (n :: aux m)
+          in
+          if par then Format.fprintf fmt "(";
+          Format.pp_print_list
+            ~pp_sep:(fun fmt () -> Format.pp_print_string fmt " ")
+            (aux ~par:true) fmt ms;
+          if par then Format.fprintf fmt ")"
     in
-    aux
+    aux ~par:true
 
   let pp_with_indent pp_var =
     let rec aux fmt = function
@@ -279,6 +293,8 @@ module Combinator = struct
         | Star (x, y) -> Format.fprintf fmt "*%a%a" aux x aux y
       in
       aux
+
+    let pp_pp_wrapper = pp
 
     let pp_easyvalidate pp_var =
       let rec aux fmt = function

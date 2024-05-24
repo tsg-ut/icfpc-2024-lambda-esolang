@@ -214,7 +214,11 @@ let reverse_ski =
         let y = gen_fv () in
         let z = gen_fv () in
         Abs (x, Abs (y, Abs (z, App (App (Var x, Var z), App (Var y, Var z)))))
-    | CVar (`Com (`Jot _)) -> failwith "Jot decompile isn't implemented yet"
+    (* | CVar (`Com (`Jot _)) -> failwith "Jot decompile isn't implemented yet" *)
+    | CVar (`Com (`Jot j)) -> Interpreter.jot2comb j |> aux
+    | CVar (`Com `Iota) ->
+        let x = gen_fv () in
+        Abs (x, App (App (Var x, aux @@ CVar (`Com `S)), aux @@ CVar (`Com `K)))
     (* | CApp (CApp (CVar (`Com `S), m), n) -> (
         match
           let x = gen_fv () in

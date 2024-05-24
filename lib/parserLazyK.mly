@@ -11,7 +11,7 @@
 %}
 
 %token <string> COMBINATOR
-%token LPAR RPAR ASTER EOF GRAVE
+%token LPAR RPAR ASTER EOF GRAVE IOTA
 
 %start main
 %type < Syntax.Combinators.com_str Syntax.Combinator.combinator > main
@@ -27,5 +27,7 @@ lazyKExpr_list:
 lazyKExpr:
 | COMBINATOR { CVar (`Com (str_to_combinators $1)) }
 | GRAVE lazyKExpr lazyKExpr { CApp($2,$3) }
+| ASTER IOTA lazyKExpr { CApp(CVar(`Com `Iota),$3) }
+| ASTER lazyKExpr IOTA { CApp($2, CVar(`Com `Iota)) }
 | LPAR lazyKExpr_list RPAR { list2CApps $2 }
 ;

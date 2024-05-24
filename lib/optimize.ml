@@ -77,7 +77,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     @@ List.map
          (fun v -> CVar (`Com v))
          ([ `S; `K; `I; `Iota ]
-         @ List.init (2 + 4 + 8) (fun i -> `Jot (i + 2)));
+         @ List.init (2 + 4 + 8 + 16) (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -167,7 +167,8 @@ let enumerate_partial_repr (m : ComStrFv.com_str_fv combinator) ~(vn : int) =
                         then (CApp (m, lift_fv (-1) n), fun o -> fm o) :: base
                         else base)
                       tn)
-                  tm |> List.filter (fun (x,_) -> ShortestPp.str_based_size x < 30))
+                  tm
+                |> List.filter (fun (x, _) -> ShortestPp.str_based_size x < 50))
             |> List.concat_map (fun x -> x)
           in
           if vn = 1 then (CVar (`Fv off), fun n -> subst n (`Fv off) o) :: rems

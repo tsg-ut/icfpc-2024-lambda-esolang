@@ -13,12 +13,14 @@ let b_based_churchnum_table () =
   let converts =
     [
       (Unary (fun n -> n + 1), "(n + 1)", s2comb "(S S n)");
-      (Binary (fun m n -> m + n),"(m + n)", s2comb "(S (S m S) n)");
-      (Binary (fun m n -> n * m),"(n * m)", s2comb "(S (S I m) n)");
+      (Binary (fun m n -> m + n), "(m + n)", s2comb "(S (S m S) n)");
+      (Binary (fun m n -> n * m), "(n * m)", s2comb "(S (S I m) n)");
       (* (Unary (fun n -> n * n), s2comb "(S (S S J0) n)"); *)
-      (Binary (fun m n -> pow m n),"(pow m n)", s2comb "(S n m)");
-      (Unary (fun m -> pow m m),"((x. pow x x) m)", s2comb "(S S I m)");
-      (Unary (fun n -> n * (n + 1)),"((x. x * (x + 1)) m)", s2comb "(S (S S S) n)");
+      (Binary (fun m n -> pow m n), "(pow m n)", s2comb "(S n m)");
+      (Unary (fun m -> pow m m), "((x. pow x x) m)", s2comb "(S S I m)");
+      ( Unary (fun n -> n * (n + 1)),
+        "((x. x * (x + 1)) m)",
+        s2comb "(S (S S S) n)" );
     ]
   in
 
@@ -32,7 +34,7 @@ let b_based_churchnum_table () =
           let rec fori i =
             let tf = f i in
             if tf < n && i < n then (
-              let s = s ^ (Format.sprintf " %d" i) in
+              let s = s ^ Format.sprintf " %d" i in
               tst.(tf) <- (i, i, s, m) :: tst.(tf);
               fori (i + 1))
             else ()
@@ -43,7 +45,7 @@ let b_based_churchnum_table () =
             (let rec forj j =
                let tf = f i j in
                if tf < n && j < n then (
-                let s = s ^ (Format.sprintf " %d %d" i j) in
+                 let s = s ^ Format.sprintf " %d %d" i j in
                  tst.(tf) <- (i, j, s, m) :: tst.(tf);
                  forj (j + 1))
                else ()
@@ -98,7 +100,9 @@ let b_based_churchnum_table = cached b_based_churchnum_table
 let shortest_churchnum_table =
   cached @@ fun () ~add_bcom ->
   let bcom = s2comb "(S(KS)K)" in
-  Array.map (fun d -> if add_bcom then CApp (d, bcom) else d) (b_based_churchnum_table ())
+  Array.map
+    (fun d -> if add_bcom then CApp (d, bcom) else d)
+    (b_based_churchnum_table ())
 
 let n2charchnum n ~add_bcom =
   if n < Array.length (shortest_churchnum_table () ~add_bcom) then
