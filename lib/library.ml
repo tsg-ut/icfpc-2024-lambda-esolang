@@ -29,6 +29,7 @@ let _ =
   register_library "mul" (s2lam "(n. m. s. z. n (m s) z)");
 
   register_library "ycom" (s2lam "(f. (x. f (x x)) (x. f (x x)))");
+	register_library "iota" (Var (`Com `Iota));
 
   (* Scott encoded list *)
   register_library "seof" (s2lam "(f. (K K))");
@@ -41,6 +42,9 @@ let _ =
 
   register_library "isicom" (s2lam "(m. m K K K I $f $t)");
   register_library "isscom" (s2lam "(m. m I I K I)");
+
+	register_library "is01toik" (s2lam "((S((S $iota)S)) J0)");
+	register_library "is0prev01" (s2lam "((S(S(K $iota)))K)");
 
   (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)
   ()

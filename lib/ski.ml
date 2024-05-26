@@ -3,11 +3,13 @@ open Syntax.Lambda
 open Syntax.Combinator
 open Numbers
 
-let ski (m : Combinators.com_str lambda) : Combinators.t combinator =
+let generic_ski
+  ~(conv_com_str:((Combinators.com_str -> 'a)))
+  ~(pp_result:Format.formatter -> 'a -> unit)
+  (m : Combinators.com_str lambda) : 'a combinator =
   let rec lambda_to_comb :
-      Combinators.com_str lambda -> Combinators.t combinator = function
-    | Var (`Com v) -> CVar v
-    | Var (`Str s) -> failwith @@ "Not-converted free variable " ^ s
+      Combinators.com_str lambda -> 'a combinator = function
+    | Var v -> CVar (conv_com_str v)
     | Abs _ -> assert false
     | App (m, n) -> CApp (lambda_to_comb m, lambda_to_comb n)
   in
@@ -50,5 +52,14 @@ let ski (m : Combinators.com_str lambda) : Combinators.t combinator =
   let m = aux m in
   Format.eprintf "Converting: %a\n" pp m;
   let res = lambda_to_comb m in
-  Format.eprintf "Converted in comb: %a\n" (Combinator.pp Combinators.pp) res;
+  Format.eprintf "Converted in comb: %a\n" (Combinator.pp pp_result) res;
   res
+
+let ski = generic_ski ~conv_com_str:(
+  function
+  | `Com c -> c
+  | `Str s -> failwith @@ "Not-converted free variable " ^ s
+) ~pp_result:(Combinators.pp)
+
+let ski_allow_str =
+  generic_ski ~conv_com_str:(fun x -> x) ~pp_result:(Combinators.pp_com_str)

@@ -228,6 +228,14 @@ module Combinator = struct
   type 'var combinator =
     | CVar of 'var
     | CApp of 'var combinator * 'var combinator
+  
+  let safe_pp pp_var =
+    let rec aux fmt = function
+      | CVar v -> Format.fprintf fmt "%a" pp_var v
+      | CApp (m,n) -> 
+              Format.fprintf fmt "(%a%a)" aux m aux n
+    in
+    aux
 
   let pp pp_var =
     let rec aux fmt = function

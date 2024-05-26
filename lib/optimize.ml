@@ -77,7 +77,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
     @@ List.map
          (fun v -> CVar (`Com v))
          ([ `S; `K; `I; `Iota ]
-         @ List.init (2 + 4 + 8 + 16) (fun i -> `Jot (i + 2)));
+         @ List.init (2 + 4 + 8) (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -112,6 +112,40 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
        Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
      ) res; *)
   res
+
+let _f () =
+  let ms = enumerate_ski ~size:4 ~fvn:0 in
+  List.iter (fun m -> 
+    let hs = List.map (fun n ->
+      let s =
+        match generate_behavior_hash (CApp(m,n)) with
+        | None -> "None"
+        | Some h -> h
+      in
+        s
+    ) (
+      [
+          CApp(CVar(`Com `K),CApp(CVar(`Com `K),CVar(`Com `I)))
+      ] @
+      (List.map (fun c -> CVar(`Com c))
+    [`K;`I;`Jot 2])
+    )
+    in
+    if (
+      List.for_all (fun s -> s = List.hd hs) hs 
+      || List.exists (fun s -> String.length s > 15) hs 
+      || (List.nth hs 1 <> List.nth hs 2) 
+      (* || (List.nth hs 2 <> List.nth hs 0)  *)
+    ) then () else begin
+      Format.eprintf "%20s : " (Format.asprintf "%a" (Combinator.safe_pp ComStrFv.pp) m);
+      List.iter (fun s ->
+          Format.eprintf " %20s |" s
+      ) hs;
+      Format.eprintf "@.";
+    end;
+    flush_all ()
+  ) ms;
+  assert false
 
 let init_hash_db =
   cached (fun () ->
@@ -248,3 +282,22 @@ let optimize m =
   (* Format.eprintf "size_of_optimal: %d\n" (TermSet.cardinal !is_optimal); *)
   flush_all ();
   m
+
+let optimize_only_annot m =
+  let unknown_str s =
+    failwith ("Unknown str@optimize_only_annot: " ^ s)
+  in
+  let rec aux m =
+    match m with
+    | CApp(CVar(`Str "optimize"),m) ->
+        let m = Combinator.map (
+          function
+          | `Com c -> c
+          | `Str s -> unknown_str s
+        ) m in
+        optimize m
+    | CVar (`Com v) -> CVar v
+    | CVar (`Str s) -> unknown_str s
+    | CApp (m, n) -> CApp(aux m, aux n)
+  in
+    aux m

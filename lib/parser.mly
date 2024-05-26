@@ -13,7 +13,7 @@
 %token <string> IDENT COMBINATOR DOLLAR
 %token <int> NUM
 %token <char> PUTC
-%token DOT LPAR RPAR QUEST ASTER HASH EOF ARROW
+%token DOT LPAR RPAR QUEST ASTER HASH EOF ARROW LBRACE RBRACE
 %right ARROW
 
 %start main
@@ -38,4 +38,5 @@ term:
 | HASH NUM { Var (`Str("#" ^ string_of_int $2)) }
 | DOLLAR { Var (`Str("$" ^ $1)) }
 | LPAR expr RPAR { $2 }
+| LBRACE expr RBRACE { App(Var(`Str "optimize"),$2) }
 ;

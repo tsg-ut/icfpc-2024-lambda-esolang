@@ -21,6 +21,8 @@ rule token = parse
 | '.' { DOT }
 | '(' { LPAR }
 | ')' { RPAR }
+| '{' { LBRACE }
+| '}' { RBRACE }
 | '?' { QUEST }
 | '*' { ASTER }
 | '#' { HASH }
