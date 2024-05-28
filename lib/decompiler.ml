@@ -152,7 +152,8 @@ let reverse_constants =
   in
   let hash_of_constants =
     !Library.library
-    |> List.filter (fun (s, _) -> not @@ List.mem s [ "to_c"; "t"; "f"; "iota" ])
+    |> List.filter (fun (s, _) ->
+           not @@ List.mem s [ "to_c"; "t"; "f"; "iota" ])
     |> List.filter_map (fun (s, m) ->
            let m = Ski.ski m in
            let m = Optimize.com_to_com_str m in

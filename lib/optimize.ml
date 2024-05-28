@@ -48,7 +48,7 @@ let generate_behavior_hash =
 
 let hash_db = Hashtbl.create 2000000
 
-let enumerate_ski ~(size : int) ~(fvn : int) =
+let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
   let table =
     Array.make_matrix (size + 1) (fvn + 1)
       ([] : ComStrFv.com_str_fv combinator list)
@@ -72,12 +72,17 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
             true)
   in
 
+  (* 2 + 4 + 8 + 16 ... *)
+  let jotnum =
+    let rec aux i b = if i <= jotLen then b + aux (i + 1) (b * 2) else 0 in
+    aux 1 2
+  in
+
   table.(0).(0) <-
     List.filter register_db
     @@ List.map
          (fun v -> CVar (`Com v))
-         ([ `S; `K; `I; `Iota ]
-         @ List.init (2 + 4 + 8) (fun i -> `Jot (i + 2)));
+         ([ `S; `K; `I; `Iota ] @ List.init jotnum (fun i -> `Jot (i + 2)));
   if fvn > 0 then table.(0).(1) <- List.filter register_db [ CVar (`Fv 0) ];
 
   for i = 1 to size do
@@ -113,43 +118,336 @@ let enumerate_ski ~(size : int) ~(fvn : int) =
      ) res; *)
   res
 
+(*
+   module Pqueue = Psq.Make (Combinator.Order (ComStrFv.Order)) (Int)
+
+   module EnumerateSkiSeq = struct
+
+     (* WIP: (というよりも無限再帰になってしまっているので多分実装しない) *)
+
+     (*
+       Seqから取り出す際は、
+       pquequeのmin と 各seqのpossible minを比べて、
+       possible min がより小さい seq に関して分解する、を繰り返す
+     *)
+
+     type breakable_seq = (int * (t list) Seq.t)
+     and t = Value of Pqueue.t * breakable_seq list
+
+     type 'v with_len = ('v * int)
+
+     module Seq_with_rems = struct
+       type 'v t = ('v with_len list) * ('v with_len Seq.t Lazy.t)
+
+       let of_seq (s:'v with_len Seq.t Lazy.t) : 'v t = ([],s)
+
+       let head_seq ((_,s): 'v t) : 'v with_len = Seq.uncons (Lazy.force s) |> Option.get |> fst
+
+       let rems ((v,_) : 'v t) : ('v with_len list) = v
+
+       let uncons ((v,s): 'v t) : 'v t =
+         let (h,tl) = Seq.uncons (Lazy.force s) |> Option.get in
+         (h :: v, lazy tl)
+     end
+
+     module type Multiple_uncons_seq = sig
+       type 'v t
+       val get_possible_min : 'v t -> int
+       val get_heads : ('v t) -> ('v -> 'v -> 'v) -> ('v with_len list * ('v t))
+     end
+
+     module Mult_seq = struct
+       type 'v t = ('v Seq_with_rems.t) * ('v Seq_with_rems.t)
+
+       let get_mult_seq s1 s2 =
+         let open Seq_with_rems in
+         (of_seq s1, of_seq s2)
+
+       let might_generate_smaller l ((s1,s2):'v t) =
+         if l < 2 then false else begin
+           let open Seq_with_rems in
+           let _,l1 = head_seq s1 in
+           let _,l2 = head_seq s2 in
+           min l1 l2 + 2 <= l
+         end
+
+       let get_possible_min ((s1,s2):'v t) =
+         let open Seq_with_rems in
+         let _,l1 = head_seq s1 in
+         let _,l2 = head_seq s2 in
+         min l1 l2 + 2
+
+       let get_heads ((s1,s2):'v t) (prod: 'v -> 'v -> 'v) : ('v with_len list * ('v t)) =
+         (* 各seqはgen由来なので長さが最小単位の仮定をおいてよさそう *)
+         let open Seq_with_rems in
+         let h1,l1 = head_seq s1 in
+         let h2,l2 = head_seq s2 in
+         if l1 < l2 then begin
+           let ts1 = uncons s1 in
+           ((List.map (fun (c2,l2) -> (prod h1 c2, l1 + l2 + 1)) (rems s2)), (ts1,s2))
+         end else begin
+           let ts2 = uncons s2 in
+           ((List.map (fun (c1,l1) -> (prod c1 h2, l1 + l2 + 1)) (rems s1)), (s1,ts2))
+         end
+
+         (* let rec aux s1 s2 =
+           let ((_,l1) as v1),rs1 = Seq.uncons s1 |> Option.get in
+           let ((_,l2) as v2),rs2 = Seq.uncons s2 |> Option.get in
+           if l1 <= l2 then Seq.cons v1 (aux rs1 s2) else Seq.cons v2 (aux s1 rs2)
+         in
+           aux (SH.of_seq s1) (SH.of_seq s2) *)
+     end
+
+     let rec first_map cond f v =
+       match v with
+       | [] -> []
+       | x :: xs ->
+           if cond x then (f x) :: xs
+           else x :: first_map cond f xs
+
+     module Mut_seq_List = struct
+       type 'v t = 'v Mult_seq.t list
+
+       let might_generate_smaller l (vs:'v t) =
+         List.exists (Mult_seq.might_generate_smaller l) vs
+
+       let get_possible_min (vs:'v t) =
+         match List.map Mult_seq.get_possible_min vs with
+         | [] -> assert false
+         | x :: xs -> List.fold_left min x xs
+
+       let get_heads (vs: 'v t) (prod: 'v -> 'v -> 'v) :  ('v with_len list * ('v t)) =
+         let l = get_possible_min vs in
+         let res = ref None in
+         let resl =
+         first_map
+           (fun x -> Mult_seq.get_possible_min x = l)
+           (fun x -> let (r,tx) = Mult_seq.get_heads x prod in
+             res := Some r; tx) vs
+         in
+           (!res |> Option.get, resl)
+     end
+
+     let rec gen_seq_base (fvmin,fvmax)
+       : ((ComStrFv.com_str_fv Combinator.combinator) * int) Seq.t =
+       Format.eprintf "gen_seq_base %d %d@." fvmin fvmax;
+       Seq.memoize @@
+         let ss : (ComStrFv.com_str_fv Combinator.combinator) Mut_seq_List.t = List.init
+           (fvmax-fvmin+1)
+           (fun i ->
+             let i = i + fvmin in
+             Mult_seq.get_mult_seq
+             (lazy (gen_seq_base (fvmin,i))) (lazy (gen_seq_base (i,fvmax))))
+         in
+         let ss,init_pque =
+           if fvmin >= fvmax then
+             (* No fv *)
+             ss,Pqueue.(empty |>
+               add_seq (List.to_seq @@
+               List.map (fun c -> (CVar (`Com c), String.length (Combinators.combinators_to_str c)))
+               @@ ([ `S; `K; `I; `Iota ]
+                    @ List.init (2+4+8+16+32+64+128) (fun i -> `Jot (i + 2))))
+               )
+           else if fvmin + 1 = fvmax then
+             ss,Pqueue.(empty |> add (CVar (`Fv fvmin)) 1)
+           else
+             ss,Pqueue.empty
+         in
+         let prod c1 c2 = CApp(c1,c2) in
+         let rec aux pque ss =
+           Format.eprintf "pop (%d,%d)@." fvmin fvmax;
+           match Pqueue.min pque with
+           | None ->
+               let vs,rss = Mut_seq_List.get_heads ss prod in
+               aux (Pqueue.of_list vs) rss
+           | Some (q,l) -> begin
+               Format.eprintf "pop succeeded (%d,%d) %d@." fvmin fvmax l;
+               Format.eprintf "Is_smaller %b@." (Mut_seq_List.might_generate_smaller l ss);
+               if Mut_seq_List.might_generate_smaller l ss then begin
+                 let vs,rss = Mut_seq_List.get_heads ss prod in
+                 aux (Pqueue.add_seq (List.to_seq vs) pque) rss
+               end else begin
+                 let rem = Pqueue.rest pque |> Option.get in
+                 Format.eprintf "pop pque %d %a@." l (Combinator.pp ComStrFv.pp) q;
+                 let res = Seq.Cons((q,l),(fun () -> aux rem ss)) in
+                 Format.eprintf "pop return %d@." l;
+                 res
+               end
+             end
+           in
+             fun () -> aux init_pque ss
+   end *)
+
+(* Generates exprs
+   - whose size is at most `size`
+   - who have at most fvn free variables. Each fvs appear at most once. *)
+let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
+  (* Index: size, fvmin, fvmax, *)
+  (* size(com) = size, and fvs(com) = [fvmin,fvmax) *)
+  let table = Array.make_matrix (size + 1) (fvn + 1) (Array.make 0 []) in
+  for i = 0 to size do
+    for j = 0 to fvn do
+      table.(i).(j) <-
+        (Array.make (fvn + 1) [] : ComStrFv.com_str_fv combinator list array)
+    done
+  done;
+
+  let register_db l c =
+    match generate_behavior_hash c with
+    | None -> true (* XXX: Is this appropriate? *)
+    | Some h -> (
+        (* let l = ShortestPp.approx_size c in *)
+        (* let l = ShortestPp.str_based_size c in *)
+        (* Format.eprintf "Hash %a => %s\n" (Combinator.safe_pp ComStrFv.pp) c h; *)
+        match Hashtbl.find_opt hash_db h with
+        | Some (_, cl) ->
+            if cl > l then (
+              Hashtbl.replace hash_db h (c, l);
+              true)
+            else false
+        | None ->
+            Hashtbl.replace hash_db h (c, l);
+            true)
+  in
+
+  (* 2 + 4 + 8 + 16 ... *)
+  table.(1).(0).(0) <-
+    List.filter (register_db 1)
+    @@ List.map
+         (fun v -> CVar (`Com v))
+         ([ `S; `K; `I; `Iota ] @ List.init 2 (fun i -> `Jot (i + 2)));
+
+  if fvn > 0 then
+    for i = 0 to fvn - 1 do
+      table.(1).(i + 1).(i + 1) <- table.(1).(i).(i);
+      table.(1).(i).(i + 1) <- List.filter (register_db 1) [ CVar (`Fv i) ]
+    done;
+
+  for size = 2 to size do
+    for fvmin = 0 to fvn do
+      for fvmax = fvmin to fvn do
+        (* Format.eprintf "Item bef of @@ (%d)(%d)(%d)@." size fvmin fvmax;
+           List.iter (fun c ->
+             Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c;
+           ) table.(size).(fvmin).(fvmax); *)
+        if fvmin = fvmax && fvmin > 0 then
+          table.(size).(fvmin).(fvmin) <- table.(size).(fvmin - 1).(fvmin - 1)
+        else
+          let ttl = ref [] in
+          (if fvmin = fvmax && size <= 5 then
+             let b =
+               let rec aux k b = if k >= size then b else aux (k + 1) (b * 2) in
+               aux 1 2
+             in
+             ttl :=
+               (List.filter (register_db size)
+               @@ List.map (fun v -> CVar (`Com v))
+               @@ List.init b (fun i -> `Jot (i + b)))
+               :: !ttl);
+
+          for j = 1 to size - 2 do
+            for fvmid = fvmin to fvmax do
+              let t1 = table.(j).(fvmin).(fvmid) in
+              let t2 = table.(size - j - 1).(fvmid).(fvmax) in
+              (* Format.eprintf "Try (%d)(%d)(%d) & (%d)(%d)(%d)@."
+                 j fvmin fvmid
+                 (size - j - 1) (fvmid) (fvmax); *)
+              let tl =
+                List.concat_map
+                  (fun l1 -> List.rev_map (fun l2 -> CApp (l1, l2)) t2)
+                  t1
+              in
+              let tl = List.filter (register_db size) tl in
+              ttl := tl :: !ttl;
+              if fvmin <> fvmax then
+                let tl =
+                  List.concat_map
+                    (fun l1 -> List.rev_map (fun l2 -> CApp (l2, l1)) t2)
+                    t1
+                in
+                let tl = List.filter (register_db size) tl in
+                ttl := tl :: !ttl
+            done
+          done;
+          let tls = List.concat_map (fun x -> x) !ttl in
+          (* Format.eprintf "size @@ (%d)(%d)(%d) : %d\n" i fvmin fvmax (List.length tls); *)
+          table.(size).(fvmin).(fvmax) <- tls
+          (* Format.eprintf "Item of @@ (%d)(%d)(%d)@." size fvmin fvmax;
+             List.iter (fun c ->
+               Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c;
+             ) table.(size).(fvmin).(fvmax); *)
+      done
+    done
+  done;
+
+  let idxs =
+    List.init size (fun s -> List.init (fvn + 1) (fun tfv -> (s, tfv)))
+    |> List.concat
+  in
+  let res = List.concat_map (fun (s, tfv) -> table.(s).(0).(tfv)) idxs in
+  Format.eprintf "Hash Table generated with size %d\n" (List.length res);
+  flush_all ();
+  (* assert false; *)
+  (* List.iter (fun c ->
+       Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
+     ) res; *)
+  res
+
+(* let _g =
+   Seq.iter (fun (c,l) ->
+     Format.eprintf "%3d : %a@." l (Combinator.pp ComStrFv.pp) c;
+     assert false;
+   ) @@ Seq.take 1 @@ EnumerateSkiSeq.gen_seq_base (0,2);
+   assert false *)
+
+let _g () =
+  let ms = enumerate_ski_with_size ~size:12 ~fvn:2 in
+  List.iter
+    (fun c -> Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c)
+    ms;
+  assert false
+
 let _f () =
-  let ms = enumerate_ski ~size:4 ~fvn:0 in
-  List.iter (fun m -> 
-    let hs = List.map (fun n ->
-      let s =
-        match generate_behavior_hash (CApp(m,n)) with
-        | None -> "None"
-        | Some h -> h
+  let ms = enumerate_ski_with_size ~size:15 ~fvn:0 in
+
+  (* Hashtbl.iter (fun h _ ->
+       Format.eprintf "Hash example: %s@." h
+     ) hash_db;
+     assert false; *)
+  List.iter
+    (fun m ->
+      let hs =
+        List.map
+          (fun n ->
+            let s =
+              match generate_behavior_hash (CApp (m, n)) with
+              | None -> "None"
+              | Some h -> h
+            in
+            s)
+          ([ CApp (CVar (`Com `K), CApp (CVar (`Com `K), CVar (`Com `I))) ]
+          @ List.map (fun c -> CVar (`Com c)) [ `K; `I; `Jot 2 ])
       in
-        s
-    ) (
-      [
-          CApp(CVar(`Com `K),CApp(CVar(`Com `K),CVar(`Com `I)))
-      ] @
-      (List.map (fun c -> CVar(`Com c))
-    [`K;`I;`Jot 2])
-    )
-    in
-    if (
-      List.for_all (fun s -> s = List.hd hs) hs 
-      || List.exists (fun s -> String.length s > 15) hs 
-      || (List.nth hs 1 <> List.nth hs 2) 
-      (* || (List.nth hs 2 <> List.nth hs 0)  *)
-    ) then () else begin
-      Format.eprintf "%20s : " (Format.asprintf "%a" (Combinator.safe_pp ComStrFv.pp) m);
-      List.iter (fun s ->
-          Format.eprintf " %20s |" s
-      ) hs;
-      Format.eprintf "@.";
-    end;
-    flush_all ()
-  ) ms;
+      if
+        List.for_all (fun s -> s = List.hd hs) hs
+        || List.exists (fun s -> String.length s > 15) hs
+        || List.nth hs 1 <> List.nth hs 2
+        || List.nth hs 1 <> "3_`v0v1" (* || (List.nth hs 2 <> List.nth hs 0)  *)
+      then ()
+      else (
+        Format.eprintf "%20s : "
+          (Format.asprintf "%a" (Combinator.safe_pp ComStrFv.pp) m);
+        List.iter (fun s -> Format.eprintf " %20s |" s) hs;
+        Format.eprintf "@.");
+      flush_all ())
+    ms;
   assert false
 
 let init_hash_db =
   cached (fun () ->
-      let _ = enumerate_ski ~size:4 ~fvn:2 in
+      let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:3 in
+
+      (* let _ = enumerate_ski_with_size ~size:14 ~fvn:2 in *)
 
       (* Hashtbl.iter
          (fun h (c, _) ->
@@ -284,20 +582,16 @@ let optimize m =
   m
 
 let optimize_only_annot m =
-  let unknown_str s =
-    failwith ("Unknown str@optimize_only_annot: " ^ s)
-  in
+  let unknown_str s = failwith ("Unknown str@optimize_only_annot: " ^ s) in
   let rec aux m =
     match m with
-    | CApp(CVar(`Str "optimize"),m) ->
-        let m = Combinator.map (
-          function
-          | `Com c -> c
-          | `Str s -> unknown_str s
-        ) m in
+    | CApp (CVar (`Str "optimize"), m) ->
+        let m =
+          Combinator.map (function `Com c -> c | `Str s -> unknown_str s) m
+        in
         optimize m
     | CVar (`Com v) -> CVar v
     | CVar (`Str s) -> unknown_str s
-    | CApp (m, n) -> CApp(aux m, aux n)
+    | CApp (m, n) -> CApp (aux m, aux n)
   in
-    aux m
+  aux m
