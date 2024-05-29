@@ -22,3 +22,6 @@ let cached gen =
         v := Some tv;
         tv
     | Some v -> v
+
+let ( let* ) = Option.bind
+let ( let+ ) v f = Option.map f v

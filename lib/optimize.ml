@@ -26,7 +26,7 @@ let generate_behavior_hash_base vn_to_var vn_com_to_hash m =
     match reduce_comb m with
     | None -> None
     | Some tm ->
-        if vn > 4 then Some (vn, m)
+        if vn > 4 then Some (vn, m) (* if vn > 4 then None *)
         else if is_ski_free tm then Some (vn, tm)
         else aux (vn + 1) (CApp (tm, CVar (vn_to_var vn)))
   in
@@ -35,7 +35,9 @@ let generate_behavior_hash_base vn_to_var vn_com_to_hash m =
   | Some (vn, m) ->
       let rec rev_eta vn m =
         match m with
-        | CApp (m, CVar v) when v = vn_to_var (vn - 1) -> rev_eta (vn - 1) m
+        | CApp (m, CVar v) when v = vn_to_var (vn - 1) && Combinator.is_free v m
+          ->
+            rev_eta (vn - 1) m
         | CApp _ | CVar _ -> (vn, m)
       in
       let vn, m = rev_eta vn m in
@@ -45,6 +47,30 @@ let generate_behavior_hash =
   generate_behavior_hash_base
     (fun vn -> `Str (Format.sprintf "v%d" vn))
     (fun vn m -> Some (Format.asprintf "%d_%a" vn pp_ski_fv_str_combinator m))
+
+let generate_behavior_hash_as_lambda m =
+  let open Lambda in
+  let rec wrap_vn vn m =
+    if vn = 0 then m else wrap_vn (vn - 1) @@ Abs (`Fv (vn - 1), m)
+  in
+  let conv_to_lambda =
+    let rec aux = function
+      | CVar ((`Str _ | `Fv _) as v) -> Some (Var v)
+      (* | CVar (`Com c) -> Some (Var (`Str (Combinators.combinators_to_str c))) *)
+      | CVar (`Com _) -> None
+      | CApp (m, n) ->
+          let* m = aux m in
+          let* n = aux n in
+          Some (App (m, n))
+    in
+    aux
+  in
+  generate_behavior_hash_base
+    (fun vn -> `Fv vn)
+    (fun vn m ->
+      let* m = conv_to_lambda m in
+      Some (wrap_vn vn m))
+    m
 
 let hash_db = Hashtbl.create 2000000
 
@@ -550,10 +576,11 @@ let optimize_with_simpler_term m =
       in
       match thm with
       | Some (tm, h, pm, _) when tm <> m ->
-          Logs.info (fun a -> a "Reduce %a => %a by %a with pm %a"
-              pp_ski_fv_str_combinator m pp_ski_fv_str_combinator tm
-              pp_ski_fv_str_combinator h pp_ski_fv_str_combinator pm;
-            flush_all ());
+          Logs.info (fun a ->
+              a "Reduce %a => %a by %a with pm %a" pp_ski_fv_str_combinator m
+                pp_ski_fv_str_combinator tm pp_ski_fv_str_combinator h
+                pp_ski_fv_str_combinator pm;
+              flush_all ());
           tm
       | _ ->
           let res =

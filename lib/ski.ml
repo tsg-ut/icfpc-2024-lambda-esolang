@@ -38,7 +38,7 @@ let generic_ski ~(conv_com_str : Combinators.com_str -> 'a)
         Logs.info (fun a -> a "Numconv: %d => %a" n pp res);
         res
     | Var _ -> m
-    | Abs (v, m) when is_free m v -> App (com `K, aux m)
+    | Abs (v, m) when Lambda.is_free m v -> App (com `K, aux m)
     | Abs (v, (Abs _ as m)) -> aux (Abs (v, aux m))
     | Abs (v, App (m, n)) ->
         let tm = aux (Abs (v, m)) in

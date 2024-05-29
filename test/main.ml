@@ -1,58 +1,6 @@
 open Lambda_esolang
-module R = Random.State
-
-let random_ski ~rand =
-  match R.int rand 3 with 0 -> `S | 1 -> `Iota | _ -> `Jot (R.int rand 6 + 2)
-
-let _random_com_str_fv ~rand =
-  match R.int rand 1 with
-  | 0 -> `Com (random_ski ~rand)
-  | 1 -> `Str (string_of_int @@ R.int rand 3)
-  | _ -> `Fv (R.int rand 3)
-
-let random_comb ~rand ~size:s ~random_var =
-  let open Syntax.Combinator in
-  let rec aux size =
-    if size = 0 then CVar (random_var ~rand)
-    else
-      let n = R.int rand size in
-      CApp (aux n, aux (size - n - 1))
-  in
-  aux s
-
-let random_comb ~rand ~random_var ~maxsize =
-  let size = R.int rand maxsize in
-  random_comb ~rand ~size ~random_var
-
-let enumerate_all_possible_reprs =
-  let open Syntax.Combinator in
-  let open ShortestPp in
-  let gen_pars cs =
-    List.filter_map
-      (fun v -> match v with Par _ -> None | _ -> Some (Par [ v ]))
-      cs
-  in
-  let rec aux = function
-    | CVar v -> [ Raw v; Par [ Raw v ] ]
-    | CApp (x, y) ->
-        let x = aux x in
-        let y = aux y in
-        let x = x @ gen_pars x in
-        let y = y @ gen_pars y in
-        let tl =
-          List.concat_map
-            (fun y ->
-              List.concat_map
-                (fun x ->
-                  (match x with Par ps -> [ Par (y :: ps) ] | _ -> [])
-                  @ [ Grave (x, y); Star (x, y); Par [ y; x ] ])
-                x)
-            y
-        in
-        let tl = List.filter is_valid_pp_wrapper tl in
-        tl
-  in
-  aux
+open Generator
+open Utils
 
 let test_shortest_combs_pp () =
   let rand = R.make [| 314 |] in
@@ -101,22 +49,51 @@ let test_decompiler () =
     let c = Syntax.Combinator.map (fun c -> `Com c) c in
     let m = Decompiler.decompile c in
 
-    let m =  Syntax.Lambda.map
-      (function `Str s -> `Str s | `Fv i -> `Str (Format.sprintf "v%d" i)) m in
+    let m =
+      Syntax.Lambda.map
+        (function `Str s -> `Str s | `Fv i -> `Str (Format.sprintf "v%d" i))
+        m
+    in
     let tc = Ski.ski_allow_str m in
-    let tc = Syntax.Combinator.map (function `Com c -> `Com c | `Str s -> `Str s) tc in
+    let tc =
+      Syntax.Combinator.map (function `Com c -> `Com c | `Str s -> `Str s) tc
+    in
 
-    begin
-      match Optimize.generate_behavior_hash c with
-      | None -> ()
-      | Some h ->
+    match Optimize.generate_behavior_hash c with
+    | None -> ()
+    | Some h ->
         let th = Optimize.generate_behavior_hash tc in
         let s = Format.asprintf "%a" pp c in
         Alcotest.(check (option string)) s (Some h) th
-    end
   done
 
-let _ = (test_size_of_pp, test_shortest_combs_pp)
+let test_reduce_lambda () =
+  let rand = R.make [| 314 |] in
+  let pp = Syntax.(Lambda.pp ComStrFv.pp) in
+
+  let hash m =
+    let m =
+      Syntax.(Lambda.map (fun (`Fv v) -> `Str (Format.sprintf "v%d" v)) m)
+    in
+    let c = Ski.ski m in
+    let c = Syntax.(Combinator.map (fun c -> `Com c) c) in
+    Optimize.generate_behavior_hash c
+  in
+  for _idx = 1 to 10000 do
+    let _ =
+      let m = random_lambda ~rand ~random_var:random_fv ~max_depth:6 in
+
+      let* tm = Interpreter.reduce_lambda m in
+      let* h = hash m in
+      let th = hash tm in
+      let s = Format.asprintf "%a -> %a" pp m pp tm in
+      Some (Alcotest.(check (option string)) s (Some h) th)
+    in
+    ()
+  done
+
+let _ = (test_size_of_pp, test_shortest_combs_pp, test_decompiler)
+
 let () =
   let open Alcotest in
   run "Utils"
@@ -125,7 +102,7 @@ let () =
         [
           (* test_case "size_of_pp" `Quick test_size_of_pp; *)
           (* test_case "shortest_combs_pp" `Slow test_shortest_combs_pp; *)
-
           test_case "decompiler" `Quick test_decompiler;
+          test_case "fv_safe_subst" `Quick test_reduce_lambda;
         ] );
     ]

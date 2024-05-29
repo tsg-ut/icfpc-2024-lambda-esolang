@@ -19,7 +19,9 @@ end
 let _ =
   Logs.set_reporter
     (Logs.format_reporter
-    ~pp_header:(fun fmt (level,_) -> Format.fprintf fmt "[%a] " Logs.pp_level level) ());
+       ~pp_header:(fun fmt (level, _) ->
+         Format.fprintf fmt "[%a] " Logs.pp_level level)
+       ());
   Logs.set_level (Some Logs.Info);
 
   Arg.parse Args.speclist (fun _ -> ()) "";
@@ -28,7 +30,8 @@ let _ =
 
   Library.load_library ();
 
-  Logs.info (fun a -> a "Inputted: %a" Syntax.(Lambda.pp Combinators.pp_com_str) res);
+  Logs.info (fun a ->
+      a "Inputted: %a" Syntax.(Lambda.pp Combinators.pp_com_str) res);
   let res =
     if !Args.partial_opt then
       let res = Ski.ski_allow_str res in

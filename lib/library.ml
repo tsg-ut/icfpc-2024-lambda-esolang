@@ -14,8 +14,8 @@ let s2lam s =
 
 let load_library () =
   (* Logs.set_reporter (Logs.format_reporter ());
-  Logs.set_level (Some Logs.Info); *)
-	
+     Logs.set_level (Some Logs.Info); *)
+
   (* register_library "$t" (s2lam "a. b. a"); *)
   register_library "t" (s2lam "K");
   (* register_library "f" (s2lam "a. b. b"); *)

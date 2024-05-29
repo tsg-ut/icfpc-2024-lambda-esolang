@@ -49,20 +49,23 @@ let reduce_comb m =
   let step = ref 0 in
 
   let _pp = Combinator.pp ComStrFv.pp in
+
+  (* Logs.info (fun a -> a "Start Reduction: %a" _pp m); *)
   let rec loop m =
     if Combinator.size m > base_size * 100 then raise StepLimit;
     if !step > 10000 then raise StepLimit;
     step := !step + 1;
     let tm = reduce_comb_one_step m in
-    (* Format.eprintf "Reduction: %a -> %a\n" _pp m _pp tm; *)
+    (* Logs.info (fun a -> a "Reduction: %a -> %a" _pp m _pp tm); *)
     if tm = m then m else loop tm
   in
   try
     let tm = loop m in
-    (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)
+    (* Logs.info (fun a -> a "ReductionCompleted: %a => %a" _pp m _pp tm); *)
     Some tm
-  with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
-                    None
+  with StepLimit ->
+    (* Logs.info (fun a -> a "Reduction Timeout: %a" pp m); *)
+    None
 
 let reduce_lambda_one_step m =
   let rec aux m =
@@ -78,7 +81,7 @@ let reduce_lambda m =
   let base_size = Lambda.size m in
   let step = ref 0 in
 
-  (* let _pp = Combinator.pp ComStrFv.pp in *)
+  let _pp = Lambda.pp ComStrFv.pp in
   let rec loop m =
     if Lambda.size m > base_size * 100 then raise StepLimit;
     if !step > 10000 then raise StepLimit;

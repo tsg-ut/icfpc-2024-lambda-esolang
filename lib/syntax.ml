@@ -50,7 +50,7 @@ module Lambda = struct
   let rec subst m x n =
     match m with
     | Var y -> if x = y then n else m
-    | Abs (y, m) -> if x = y then m else Abs (y, subst m x n)
+    | Abs (y, m) as mm -> if x = y then mm else Abs (y, subst m x n)
     | App (m, o) -> App (subst m x n, subst o x n)
 
   let rec count m x =
@@ -85,6 +85,16 @@ module Lambda = struct
     in
     aux [] m
 
+  let all_fv =
+    let rec aux = function
+      | Var (`Fv v) -> v
+      | Var _ -> -1
+      | Abs (`Fv x, m) -> max x (aux m)
+      | Abs (_, m) -> aux m
+      | App (m, n) -> max (aux m) (aux n)
+    in
+    aux
+
   let free_fvs m =
     let rec aux env = function
       | Var (`Fv v) -> if List.mem v env then [] else [ v ]
@@ -104,17 +114,21 @@ module Lambda = struct
 
   (* m中でnの自由変数が束縛されかかった場合は、mのほうのabsを十分な高さまで持ち上げる *)
   let fv_safe_subst m x n =
-    let max_fv = max (max_free_fv m) (max_free_fv n) in
+    (* let _pp = pp (fun fmt -> function (`Fv i) -> Format.fprintf fmt "v%d" i | _ -> assert false) in *)
+    let max_fv = max (max (all_fv m) (max_free_fv n)) x in
     let gen_fv = gen_gen_fv (max_fv + 1) in
     let n_fvs = free_fvs n in
     let rec aux m =
+      (* Format.eprintf "aux: %a@." _pp m; *)
       match m with
       | Var y -> if `Fv x = y then n else m
       | Abs (`Fv y, m) as mm ->
           if x = y then mm
           else if List.mem y n_fvs then
             let ty = gen_fv () in
+            (* Format.eprintf "Befrep: %a@." _pp m; *)
             let m = subst m (`Fv y) (Var ty) in
+            (* Format.eprintf "Aftrep: %a@." _pp m; *)
             Abs (ty, aux m)
           else Abs (`Fv y, aux m)
       | Abs (y, m) -> Abs (y, aux m)
@@ -264,6 +278,10 @@ module Combinator = struct
   let rec map f = function
     | CVar v -> CVar (f v)
     | CApp (m, n) -> CApp (map f m, map f n)
+
+  let rec is_free v = function
+    | CVar w -> v <> w
+    | CApp (m, n) -> is_free v m && is_free v n
 
   let rec subst m v by =
     match m with

@@ -89,7 +89,8 @@ let b_based_churchnum_table () =
            None
     in
     let tm, s, _ = Option.get tm in
-    Logs.info (fun a -> a "%d %a (%s)" i (pp Syntax.Combinators.pp_com_str) tm s);
+    Logs.info (fun a ->
+        a "%d %a (%s)" i (pp Syntax.Combinators.pp_com_str) tm s);
     flush_all ();
     btable.(i) <- tm
   done;
