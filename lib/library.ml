@@ -4,7 +4,7 @@ open Syntax.Combinators
 let library = ref ([] : (string * com_str lambda) list)
 
 let register_library name m =
-  Format.eprintf "----------------Register %s\n" name;
+  Logs.info (fun a -> a "----------------Register %s" name);
   flush_all ();
   library := (name, m) :: !library
 
@@ -12,7 +12,10 @@ let s2lam s =
   let lexbuf = Lexing.from_string s in
   Parser.main Lexer.token lexbuf
 
-let _ =
+let load_library () =
+  (* Logs.set_reporter (Logs.format_reporter ());
+  Logs.set_level (Some Logs.Info); *)
+	
   (* register_library "$t" (s2lam "a. b. a"); *)
   register_library "t" (s2lam "K");
   (* register_library "f" (s2lam "a. b. b"); *)

@@ -30,12 +30,12 @@ let generic_ski ~(conv_com_str : Combinators.com_str -> 'a)
     | Var (`Str s) when String.get s 0 = '*' ->
         let n = int_of_string @@ String.sub s 1 (String.length s - 1) in
         let res = aux @@ n2charchnum n ~add_bcom:true in
-        Format.eprintf "Numconv: %d => %a\n" n pp res;
+        Logs.info (fun a -> a "Numconv: %d => %a" n pp res);
         res
     | Var (`Str s) when String.get s 0 = '#' ->
         let n = int_of_string @@ String.sub s 1 (String.length s - 1) in
         let res = aux @@ n2charchnum n ~add_bcom:false in
-        Format.eprintf "Numconv: %d => %a\n" n pp res;
+        Logs.info (fun a -> a "Numconv: %d => %a" n pp res);
         res
     | Var _ -> m
     | Abs (v, m) when is_free m v -> App (com `K, aux m)
@@ -49,9 +49,9 @@ let generic_ski ~(conv_com_str : Combinators.com_str -> 'a)
     | App (m, n) -> App (aux m, aux n)
   in
   let m = aux m in
-  Format.eprintf "Converting: %a\n" pp m;
+  Logs.info (fun a -> a "Converting: %a" pp m);
   let res = lambda_to_comb m in
-  Format.eprintf "Converted in comb: %a\n" (Combinator.pp pp_result) res;
+  Logs.info (fun a -> a "Converted in comb: %a" (Combinator.pp pp_result) res);
   res
 
 let ski =

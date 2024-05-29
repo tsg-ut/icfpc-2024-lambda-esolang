@@ -49,7 +49,7 @@ let detect_Y_emphilically m =
   in
   let m = Combinator.map (function `Str v -> `Str v | `Com c -> `Com c) m in
   let m = CApp (m, CVar (`Fv 0)) in
-  Format.eprintf "try is_Ycom: %a\n" pp m;
+  Logs.info (fun a -> a "try is_Ycom: %a" pp m);
   loop m
 
 let hash_to_lambda m =
@@ -90,8 +90,9 @@ let is_num_comb =
   fun m ->
     let m = com_str_to_com_str_fv m in
     let* h = hash_to_lambda m in
-    Format.eprintf "Check is_num_comb: %a => %a@." (Combinator.pp pp_com_str) m
-      (Lambda.pp pp_str_fv) h;
+    Logs.info (fun a -> a
+      "Check is_num_comb: %a => %a" (Combinator.pp pp_com_str) m
+      (Lambda.pp pp_str_fv) h);
     check h
 
 let is_num_func_narg m args =
@@ -158,7 +159,7 @@ let reverse_constants =
            let m = Ski.ski m in
            let m = Optimize.com_to_com_str m in
            let* h = Optimize.generate_behavior_hash_base pp_vn pp_hash m in
-           Format.eprintf "lib %s => h: %s\n" s h;
+           Logs.info (fun a -> a "lib %s => h: %s" s h);
            Some (h, s))
   in
   let rec aux m =
@@ -246,9 +247,9 @@ let reverse_ski =
           aux
         in
         match
-          Format.eprintf "Try generate hash of %a\n"
+          Logs.info (fun a -> a "Try generate hash of %a"
             (Combinator.pp ComStrFv.pp)
-            m;
+            m);
           let* h =
             Optimize.generate_behavior_hash_base
               (fun vn -> `Fv vn)
@@ -259,7 +260,7 @@ let reverse_ski =
                   Some (wrap_vn vn m))
               m
           in
-          Format.eprintf "Hash generated: %a\n" (Lambda.pp ComStrFv.pp) h;
+          Logs.info (fun a -> a "Hash generated: %a" (Lambda.pp ComStrFv.pp) h);
           Some h
         with
         | Some h -> h
@@ -280,8 +281,8 @@ let simplify_lam =
     | App (Abs (`Fv x, m), n)
       when Lambda.count m (`Fv x) <= 1
            || match n with Var _ -> true | _ -> false ->
-        (* Format.eprintf "com: %a / count: %d\n"
-           (Lambda.pp pp_str_fv) m (Lambda.count m x); *)
+        (* Logs.info (fun a -> a "com: %a / count: %d\n"
+           (Lambda.pp pp_str_fv) m (Lambda.count m x)); *)
         Lambda.fv_safe_subst m x n
     | App (_, _) -> (
         match try_simplify_by_reduction m with
@@ -296,7 +297,7 @@ let simplify_lam =
   in
   let rec loop i m =
     flush_all ();
-    Format.eprintf "simplify: %a\n" (Lambda.pp pp_str_fv) m;
+    Logs.info (fun a -> a "simplify: %a" (Lambda.pp pp_str_fv) m);
     let tm = aux m in
     if i < 100 && tm <> m then loop (i + 1) tm else tm
   in
@@ -334,11 +335,11 @@ let hash_based_reduction m =
 let decompile m =
   let m = reverse_constants m in
   let m = com_str_to_com_str_fv m in
-  Format.printf "After reverse consts : %a\n" (Combinator.pp ComStrFv.pp) m;
+  Logs.info (fun a -> a "After reverse consts : %a" (Combinator.pp ComStrFv.pp) m);
   (* let m = hash_based_reduction m in
-     Format.eprintf "After Hash based reduction: %a\n" (Lambda.pp_with_indent pp_str_fv) m; *)
+     Logs.info (fun a -> a "After Hash based reduction: %a" (Lambda.pp_with_indent pp_str_fv) m); *)
   let m = reverse_ski m in
-  Format.printf "After reverse_ski: %a\n" (Lambda.pp_with_indent pp_str_fv) m;
+  Logs.info (fun a -> a "After reverse_ski: %a" (Lambda.pp_with_indent pp_str_fv) m);
   let m = simplify_lam m in
-  Format.printf "After simplify: %a\n" (Lambda.pp_with_indent pp_str_fv) m;
-  exit 0
+  Logs.info (fun a -> a "After simplify: %a" (Lambda.pp_with_indent pp_str_fv) m);
+  m

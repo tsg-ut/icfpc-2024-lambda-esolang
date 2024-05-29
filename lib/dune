@@ -3,7 +3,7 @@
  (public_name lambda_esolang)
  (flags -w @a-70-21-4 -linkall)
  ; in order to load library.ml
- (libraries str))
+ (libraries str logs))
 
 (ocamllex lexer lexerLazyK)
 

@@ -98,7 +98,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
               t1
           in
           let tl = List.filter register_db tl in
-          Format.eprintf "size: %d\n" (List.length tl);
+          (* Format.eprintf "size: %d\n" (List.length tl); *)
           ttl := tl :: !ttl
         done
       done;
@@ -110,7 +110,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
     |> List.concat_map Array.to_list
     |> List.concat_map (fun x -> x)
   in
-  Format.eprintf "Hash Table generated with size %d\n" (List.length res);
+  Logs.info (fun a -> a "Hash Table generated with size %d" (List.length res));
   flush_all ();
   (* assert false; *)
   (* List.iter (fun c ->
@@ -385,7 +385,7 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
     |> List.concat
   in
   let res = List.concat_map (fun (s, tfv) -> table.(s).(0).(tfv)) idxs in
-  Format.eprintf "Hash Table generated with size %d\n" (List.length res);
+  Logs.info (fun a -> a "Hash Table generated with size %d" (List.length res));
   flush_all ();
   (* assert false; *)
   (* List.iter (fun c ->
@@ -550,10 +550,10 @@ let optimize_with_simpler_term m =
       in
       match thm with
       | Some (tm, h, pm, _) when tm <> m ->
-          Format.eprintf "Reduce %a => %a by %a with pm %a\n"
-            pp_ski_fv_str_combinator m pp_ski_fv_str_combinator tm
-            pp_ski_fv_str_combinator h pp_ski_fv_str_combinator pm;
-          flush_all ();
+          Logs.info (fun a -> a "Reduce %a => %a by %a with pm %a"
+              pp_ski_fv_str_combinator m pp_ski_fv_str_combinator tm
+              pp_ski_fv_str_combinator h pp_ski_fv_str_combinator pm;
+            flush_all ());
           tm
       | _ ->
           let res =

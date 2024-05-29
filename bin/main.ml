@@ -1,5 +1,4 @@
 open Lambda_esolang
-module L = Library
 
 let parse lexbuf = Parser.main Lexer.token lexbuf
 
@@ -18,10 +17,18 @@ module Args = struct
 end
 
 let _ =
+  Logs.set_reporter
+    (Logs.format_reporter
+    ~pp_header:(fun fmt (level,_) -> Format.fprintf fmt "[%a] " Logs.pp_level level) ());
+  Logs.set_level (Some Logs.Info);
+
   Arg.parse Args.speclist (fun _ -> ()) "";
   let lexbuf = Lexing.from_channel stdin in
   let res = parse lexbuf in
-  Format.eprintf "Inputted: %a\n" Syntax.(Lambda.pp Combinators.pp_com_str) res;
+
+  Library.load_library ();
+
+  Logs.info (fun a -> a "Inputted: %a" Syntax.(Lambda.pp Combinators.pp_com_str) res);
   let res =
     if !Args.partial_opt then
       let res = Ski.ski_allow_str res in

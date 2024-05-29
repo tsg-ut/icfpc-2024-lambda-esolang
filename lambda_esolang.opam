@@ -4,4 +4,5 @@ depends: [
 	"ocaml"
 	"ocamlformat"
 	"alcotest"
+	"logs"
 ]

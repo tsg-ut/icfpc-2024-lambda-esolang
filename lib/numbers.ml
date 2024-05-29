@@ -24,7 +24,7 @@ let b_based_churchnum_table () =
     ]
   in
 
-  Format.eprintf "Converters\n";
+  (* Format.eprintf "Converters\n"; *)
   let n = 100 in
   let tst = Array.init n (fun _ -> []) in
   List.iter
@@ -55,7 +55,7 @@ let b_based_churchnum_table () =
           in
           fori 1)
     converts;
-  Format.eprintf "Make btable\n";
+  (* Format.eprintf "Make btable\n"; *)
   flush_all ();
   (* assert false; *)
   let btable = Array.make n (s2comb "I") in
@@ -89,7 +89,7 @@ let b_based_churchnum_table () =
            None
     in
     let tm, s, _ = Option.get tm in
-    Format.eprintf "%d %a (%s)\n" i (pp Syntax.Combinators.pp_com_str) tm s;
+    Logs.info (fun a -> a "%d %a (%s)" i (pp Syntax.Combinators.pp_com_str) tm s);
     flush_all ();
     btable.(i) <- tm
   done;
@@ -109,7 +109,7 @@ let n2charchnum n ~add_bcom =
     Interpreter.com_to_lambda @@ (shortest_churchnum_table () ~add_bcom).(n)
   else
     let open Syntax.Lambda in
-    Format.eprintf "Generate non-optimized church num: %d\n" n;
+    Logs.info (fun a -> a "Generate non-optimized church num: %d" n);
     let rec aux n = if n = 0 then Var "z" else App (Var "s", aux (n - 1)) in
     Lambda.map (fun v -> `Str v) @@ Abs ("s", Abs ("z", aux n))
 
