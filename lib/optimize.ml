@@ -72,6 +72,14 @@ let generate_behavior_hash_as_lambda m =
       Some (wrap_vn vn m))
     m
 
+let generate_beta_eta_behavior_hash m =
+  Format.eprintf "%a@." (Combinator.pp ComStrFv.pp) m;
+  let m = DeBruijn.of_comb m in
+  let+ m = DeBruijn.reduce_beta_eta m in
+  let s = DeBruijn.to_hash m in
+  Format.eprintf "%s@." s;
+  s
+
 let hash_db = Hashtbl.create 2000000
 
 let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
@@ -427,6 +435,7 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
    assert false *)
 
 let _g () =
+  Format.eprintf "Run g@Optimize@.";
   let ms = enumerate_ski_with_size ~size:12 ~fvn:2 in
   List.iter
     (fun c -> Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c)
@@ -434,7 +443,9 @@ let _g () =
   assert false
 
 let _f () =
-  let ms = enumerate_ski_with_size ~size:15 ~fvn:0 in
+  Format.eprintf "Run f@Optimize@.";
+  let ms = enumerate_ski_with_size ~size:18 ~fvn:0 in
+  Logs.info (fun a -> a "Table generated with size %d" (List.length ms));
 
   (* Hashtbl.iter (fun h _ ->
        Format.eprintf "Hash example: %s@." h
@@ -451,17 +462,25 @@ let _f () =
               | Some h -> h
             in
             s)
-          ([ CApp (CVar (`Com `K), CApp (CVar (`Com `K), CVar (`Com `I))) ]
+          ((* [ CApp (CVar (`Com `K), CApp (CVar (`Com `K), CVar (`Com `I))) ] *)
+           [ CVar (`Com `I) ]
           @ List.map (fun c -> CVar (`Com c)) [ `K; `I; `Jot 2 ])
       in
       if
         List.for_all (fun s -> s = List.hd hs) hs
         || List.exists (fun s -> String.length s > 15) hs
+        || List.exists (fun s -> s = "None") hs
         || List.nth hs 1 <> List.nth hs 2
-        || List.nth hs 1 <> "3_`v0v1" (* || (List.nth hs 2 <> List.nth hs 0)  *)
+        (* || List.nth hs 0 = List.nth hs 1 *)
+        (* || List.nth hs 0 = List.nth hs 3 *)
+        || List.nth hs 1 = List.nth hs 3
+        (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 1)) *)
+        (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 3)) *)
+        (* || List.nth hs 1 <> List.nth hs 3 *)
+        (* || List.nth hs 1 <> "3_`v0v1" || (List.nth hs 2 <> List.nth hs 0) *)
       then ()
       else (
-        Format.eprintf "%20s : "
+        Format.eprintf "%30s : "
           (Format.asprintf "%a" (Combinator.safe_pp ComStrFv.pp) m);
         List.iter (fun s -> Format.eprintf " %20s |" s) hs;
         Format.eprintf "@.");
@@ -471,9 +490,8 @@ let _f () =
 
 let init_hash_db =
   cached (fun () ->
-      let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:3 in
-
-      (* let _ = enumerate_ski_with_size ~size:14 ~fvn:2 in *)
+      (* let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
+      let _ = enumerate_ski_with_size ~size:14 ~fvn:2 in
 
       (* Hashtbl.iter
          (fun h (c, _) ->

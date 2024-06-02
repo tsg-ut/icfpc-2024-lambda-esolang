@@ -36,9 +36,20 @@ let _ =
     if !Args.partial_opt then
       let res = Ski.ski_allow_str res in
       Optimize.optimize_only_annot res
+    else if !Args.no_opt then
+      let res = Ski.ski_allow_str res in
+      let res =
+        Syntax.Combinator.map
+          (function
+            | `Str "optimize" -> `I
+            | `Str s -> failwith @@ "Not-converted free variable " ^ s
+            | `Com c -> c)
+          res
+      in
+      res
     else
       let res = Ski.ski res in
-      if !Args.no_opt then res else Optimize.optimize res
+      Optimize.optimize res
   in
   (* let res = Syntax.Combinator.combinator_to_str res in *)
   Format.printf "%a\n" Syntax.Combinator.ShortestPp.pp res;

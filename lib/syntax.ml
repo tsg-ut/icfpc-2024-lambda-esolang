@@ -289,6 +289,17 @@ module Combinator = struct
     | CVar _ -> m
     | CApp (m, n) -> CApp (subst m v by, subst n v by)
 
+  let iota2skicomb m = CApp (CApp (m, CVar (`Com `S)), CVar (`Com `K))
+
+  let jot2skicomb n =
+    let v = Combinators.n2bin n in
+    List.fold_left
+      (fun acc x ->
+        if x = 0 then CApp (CApp (acc, CVar (`Com `S)), CVar (`Com `K))
+        else CApp (CVar (`Com `S), CApp (CVar (`Com `K), acc)))
+      (CVar (`Com `I))
+      v
+
   module ShortestPp = struct
     let pp_combinator = pp
 
@@ -640,4 +651,152 @@ module Combinator = struct
           let x = compare m1 n1 in
           if x <> 0 then x else compare m2 n2
   end
+end
+
+module DeBruijn = struct
+  type t = Var of int | Abs of t | App of t * t
+
+  let rec size = function
+    | Var _ -> 1
+    | Abs m -> size m + 1
+    | App (m, n) -> size m + size n + 1
+
+  let to_hash =
+    let rec aux m =
+      match m with
+      | Var v -> string_of_int v
+      | Abs m -> "." ^ aux m
+      | App (m, n) -> Format.asprintf "(%s %s)" (aux m) (aux n)
+    in
+    aux
+
+  let of_lambda =
+    let index v =
+      let rec aux d = function
+        | [] -> -1
+        | x :: xs -> if x = v then d else aux (d + 1) xs
+      in
+      aux 0
+    in
+    let rec aux env = function
+      | Lambda.Var v -> Var (index v env)
+      | Lambda.Abs (v, m) -> Abs (aux (v :: env) m)
+      | Lambda.App (m, n) -> App (aux env m, aux env n)
+    in
+    fun m -> aux [] m
+
+  let is_0_free =
+    let rec aux d = function
+      | Var x -> if x = d then false else true
+      | Abs m -> aux (d + 1) m
+      | App (m, n) -> aux d m && aux d n
+    in
+    aux 0
+
+  let remove_eta m =
+    let rec aux d = function
+      | Var x when x > d -> Var (x - 1)
+      | Var x when x < d -> Var x
+      | Var _ -> assert false
+      | Abs m -> Abs (aux (d + 1) m)
+      | App (m, n) -> App (aux d m, aux d n)
+    in
+    aux 0 m
+
+  let lift_large_fv d =
+    let rec aux nd = function
+      | Var x when x >= nd -> Var (x + d)
+      | Var x -> Var x
+      | Abs m -> Abs (aux (nd + 1) m)
+      | App (m, n) -> App (aux nd m, aux nd n)
+    in
+    aux 0
+
+  (* Lift not substituted Vars *)
+  let beta m n =
+    let rec aux d m =
+      match m with
+      | Var x when x = d -> lift_large_fv d n
+      | Var x when x < d -> Var x
+      | Var x (* when x > d *) -> Var (x - 1)
+      | Abs m -> Abs (aux (d + 1) m)
+      | App (m, n) -> App (aux d m, aux d n)
+    in
+    aux 0 m
+
+  let reduce_beta_one_step m =
+    let rec aux m =
+      match m with
+      | Var _ -> m
+      | App (Abs m, n) -> beta m n
+      | Abs m -> Abs (aux m)
+      | App (m, n) -> App (aux m, aux n)
+    in
+    aux m
+
+  let reduce_eta_one_step m =
+    let rec aux m =
+      match m with
+      | Var _ -> m
+      | Abs (App (m, Var 0)) when is_0_free m -> remove_eta m
+      | Abs m -> Abs (aux m)
+      | App (m, n) -> App (aux m, aux n)
+    in
+    aux m
+
+  exception StepLimit
+
+  let gen_reduce reduce_one_step m =
+    let base_size = size m in
+    let step = ref 0 in
+
+    let _pp fmt m = Format.fprintf fmt "%s" (to_hash m) in
+    let rec loop m =
+      if size m > base_size * 100 then raise StepLimit;
+      if !step > 10000 then raise StepLimit;
+      step := !step + 1;
+      match reduce_one_step m with
+      | None -> None
+      | Some tm ->
+          Format.eprintf "Reduction: %a => %a@." _pp m _pp tm;
+          if tm = m then Some m else loop tm
+    in
+    try
+      let tm = loop m in
+      (* Format.eprintf "Reduction: %a => %a\n" pp m pp tm ; *)
+      tm
+    with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
+                      None
+
+  let reduce_beta = gen_reduce (fun m -> Some (reduce_beta_one_step m))
+  let reduce_eta = gen_reduce (fun m -> Some (reduce_eta_one_step m))
+
+  let reduce_beta_eta =
+    gen_reduce (fun m -> Option.bind (reduce_eta m) reduce_beta)
+
+  let rec of_combs =
+    let ls = Abs (Abs (Abs (App (App (Var 2, Var 0), App (Var 1, Var 0))))) in
+    let lk = Abs (Abs (Var 1)) in
+    let li = Abs (Var 0) in
+    let liota = Abs (App (App (Var 0, ls), lk)) in
+
+    fun (c : Combinators.t) ->
+      match c with
+      | `S -> ls
+      | `K -> lk
+      | `I -> li
+      | `Jot n ->
+          let x = Combinator.jot2skicomb n in
+          of_comb x
+      | `Iota -> liota
+      | `D -> assert false
+
+  and of_comb c =
+    let open Combinator in
+    match c with
+    | CVar (`Com c) -> of_combs c
+    | CVar (`Fv x) ->
+        assert (x < 0);
+        Var x
+    | CApp (m, n) -> App (of_comb m, of_comb n)
 end

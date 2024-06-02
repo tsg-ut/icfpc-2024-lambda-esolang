@@ -46,7 +46,7 @@ let load_library () =
   register_library "isicom" (s2lam "(m. m K K K I $f $t)");
   register_library "isscom" (s2lam "(m. m I I K I)");
 
-  register_library "is01toik" (s2lam "((S((S $iota)S)) J0)");
+  register_library "is01tofi" (s2lam "((S((S $iota)S)) J0)");
   register_library "is0prev01" (s2lam "((S(S(K $iota)))K)");
 
   (* register_library "dec" (s2lam "n. n (v. $f) (cons *0 *0)"); *)

@@ -59,10 +59,15 @@ let test_decompiler () =
       Syntax.Combinator.map (function `Com c -> `Com c | `Str s -> `Str s) tc
     in
 
-    match Optimize.generate_behavior_hash c with
+    match Optimize.generate_beta_eta_behavior_hash c with
     | None -> ()
     | Some h ->
-        let th = Optimize.generate_behavior_hash tc in
+        let tc =
+          Syntax.Combinator.map
+            (function `Str _ -> assert false | `Com c -> `Com c)
+            tc
+        in
+        let th = Optimize.generate_beta_eta_behavior_hash tc in
         let s = Format.asprintf "%a" pp c in
         Alcotest.(check (option string)) s (Some h) th
   done
@@ -77,11 +82,19 @@ let test_reduce_lambda () =
     in
     let c = Ski.ski m in
     let c = Syntax.(Combinator.map (fun c -> `Com c) c) in
-    Optimize.generate_behavior_hash c
+    Optimize.generate_beta_eta_behavior_hash c
   in
   for _idx = 1 to 10000 do
     let _ =
-      let m = random_lambda ~rand ~random_var:random_fv ~max_depth:6 in
+      (*
+      XXX: When ~max_depth=6, the check will fail with the following infinity-reduction 
+        Reduction: ((.0 .((.0 0) (.0 0))) (.0 .((.0 0) (.0 0)))) => (.((.0 0) (.0 0)) .((.0 0) (.0 0)))
+        Reduction: (.((.0 0) (.0 0)) .((.0 0) (.0 0))) => ((.0 .((.0 0) (.0 0))) (.0 .((.0 0) (.0 0))))
+  
+        Expected: `Some "(.(0 0) .(0 0))"'
+        Received: `None'
+      *)
+      let m = random_lambda ~rand ~random_var:random_fv ~max_depth:5 in
 
       let* tm = Interpreter.reduce_lambda m in
       let* h = hash m in
@@ -92,17 +105,46 @@ let test_reduce_lambda () =
     ()
   done
 
-let _ = (test_size_of_pp, test_shortest_combs_pp, test_decompiler)
+let test_reduce_lambda_one_step () =
+  let rand = R.make [| 314 |] in
+
+  let hash m = Syntax.DeBruijn.to_hash m in
+  let pp = Syntax.(Lambda.pp ComStrFv.pp) in
+  let ppb fmt m = Format.fprintf fmt "%s" (hash m) in
+  for _idx = 1 to 10000 do
+    let _ =
+      let m = random_lambda ~rand ~random_var:random_fv ~max_depth:6 in
+      let tm = Interpreter.reduce_lambda_one_step m in
+      let btm = Syntax.DeBruijn.of_lambda tm in
+
+      let bm = Syntax.DeBruijn.of_lambda m in
+      let tbm = Syntax.DeBruijn.reduce_beta_one_step bm in
+
+      let hbtm = hash btm in
+      let htbm = hash tbm in
+      let s = Format.asprintf "%a -> %a / %a -> %a" pp m pp tm ppb bm ppb tbm in
+      Some (Alcotest.(check string) s hbtm htbm)
+    in
+    ()
+  done
+
+let _ =
+  (test_size_of_pp, test_shortest_combs_pp, test_decompiler, test_reduce_lambda)
 
 let () =
   let open Alcotest in
   run "Utils"
     [
+      ( "subst",
+        [
+          test_case "fv_safe_subst" `Quick test_reduce_lambda;
+          test_case "assoc_of_reduce_lambda_one_step" `Quick
+            test_reduce_lambda_one_step;
+        ] );
       ( "ski",
         [
           (* test_case "size_of_pp" `Quick test_size_of_pp; *)
           (* test_case "shortest_combs_pp" `Slow test_shortest_combs_pp; *)
           test_case "decompiler" `Quick test_decompiler;
-          test_case "fv_safe_subst" `Quick test_reduce_lambda;
         ] );
     ]

@@ -1,6 +1,5 @@
 open Syntax
 open Syntax.Lambda
-open Syntax.Combinators
 open Syntax.Combinator
 
 let s2comb s =
@@ -20,15 +19,6 @@ let com_to_lambda : 'a combinator -> 'a lambda =
 
 exception StepLimit
 
-let jot2comb n =
-  let v = n2bin n in
-  List.fold_left
-    (fun acc x ->
-      if x = 0 then CApp (CApp (acc, CVar (`Com `S)), CVar (`Com `K))
-      else CApp (CVar (`Com `S), CApp (CVar (`Com `K), acc)))
-    (CVar (`Com `I))
-    v
-
 let reduce_comb_one_step =
   let rec aux m =
     match m with
@@ -36,9 +26,8 @@ let reduce_comb_one_step =
     | CApp (CApp (CVar (`Com `K), m), _) -> m
     | CApp (CApp (CApp (CVar (`Com `S), m), n), o) ->
         CApp (CApp (m, o), CApp (n, o))
-    | CApp (CVar (`Com `Iota), m) ->
-        CApp (CApp (m, CVar (`Com `S)), CVar (`Com `K))
-    | CVar (`Com (`Jot x)) -> jot2comb x
+    | CApp (CVar (`Com `Iota), m) -> iota2skicomb m
+    | CVar (`Com (`Jot x)) -> jot2skicomb x
     | CVar _ as m -> m
     | CApp (m, n) -> CApp (aux m, aux n)
   in
