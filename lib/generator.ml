@@ -1,4 +1,3 @@
-open Lambda_esolang
 module R = Random.State
 
 module Choice = struct
@@ -18,6 +17,13 @@ let _random_com_str_fv ~rand =
   | _ -> `Fv (R.int rand 3)
 
 let random_fv ~rand = `Fv (R.int rand 10)
+
+let random_comb_fv ~neg_fv =
+  let fv_rand rand =
+    if neg_fv then (-1 * R.int rand 10) - 1 else R.int rand 10
+  in
+  fun ~rand ->
+    if R.bool rand then `Com (random_ski ~rand) else `Fv (fv_rand rand)
 
 let random_comb ~rand ~size:s ~random_var =
   let open Syntax.Combinator in
@@ -45,18 +51,18 @@ let random_lambda ~rand ~random_var ~depth =
   let rec aux depth env =
     if depth <= 0 then random_varExpr env
     else
-      match R.int rand 3 with
-      | 0 -> random_varExpr env
-      | 1 ->
-          let v = random_var ~rand in
-          Abs (v, aux (depth - 1) (v :: env))
-      | 2 -> App (aux (depth - 1) env, aux (depth - 1) env)
-      | _ -> assert false
+      let r = R.int rand 105 in
+      if r < 5 then random_varExpr env
+      else if r < 55 then
+        let v = random_var ~rand in
+        Abs (v, aux (depth - 1) (v :: env))
+      else if r < 105 then App (aux (depth - 1) env, aux (depth - 1) env)
+      else assert false
   in
   aux depth []
 
 let random_lambda ~rand ~random_var ~max_depth =
-  let depth = R.int rand max_depth in
+  let depth = R.int rand max_depth + 3 in
   random_lambda ~rand ~random_var ~depth
 
 let enumerate_all_possible_reprs =

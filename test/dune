@@ -1,3 +1,10 @@
 (test
  (name main)
+ (modules main)
  (libraries lambda_esolang alcotest))
+
+(executable
+ (name performance)
+ (modules performance)
+ (flags -w @a-70-21-4)
+ (libraries lambda_esolang mtime mtime.clock.os logs))

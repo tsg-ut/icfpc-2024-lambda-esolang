@@ -108,9 +108,9 @@ let test_reduce_lambda () =
 let test_reduce_lambda_one_step () =
   let rand = R.make [| 314 |] in
 
-  let hash m = Syntax.DeBruijn.to_hash m in
+  let hash m = Format.asprintf "%a" Syntax.DeBruijn.to_hash m in
   let pp = Syntax.(Lambda.pp ComStrFv.pp) in
-  let ppb fmt m = Format.fprintf fmt "%s" (hash m) in
+  let ppb fmt m = Format.fprintf fmt "%a" Syntax.DeBruijn.to_hash m in
   for _idx = 1 to 10000 do
     let _ =
       let m = random_lambda ~rand ~random_var:random_fv ~max_depth:6 in
@@ -124,6 +124,29 @@ let test_reduce_lambda_one_step () =
       let htbm = hash tbm in
       let s = Format.asprintf "%a -> %a / %a -> %a" pp m pp tm ppb bm ppb tbm in
       Some (Alcotest.(check string) s hbtm htbm)
+    in
+    ()
+  done
+
+let test_xor_hash () =
+  let rand = R.make [| 314 |] in
+
+  let hash_db = Hashtbl.create 10000 in
+
+  for _idx = 1 to 1000000 do
+    let _ =
+      let m = random_lambda ~rand ~random_var:random_fv ~max_depth:7 in
+      let bm = Syntax.DeBruijn.of_lambda m in
+
+      let h = Format.asprintf "%a" Syntax.DeBruijn.to_hash bm in
+      let hx = Syntax.DeBruijn.to_xor_hash bm in
+
+      (* Format.eprintf "%s@." h; *)
+      match Hashtbl.find_opt hash_db hx with
+      | None -> Hashtbl.add hash_db hx h
+      | Some h2 ->
+          let s = Format.asprintf "Hash collision: %s / %s => %d" h h2 hx in
+          Alcotest.(check string) s h h2
     in
     ()
   done
@@ -147,4 +170,5 @@ let () =
           (* test_case "shortest_combs_pp" `Slow test_shortest_combs_pp; *)
           test_case "decompiler" `Quick test_decompiler;
         ] );
+      ("hash", [ test_case "xor_hash" `Quick test_xor_hash ]);
     ]

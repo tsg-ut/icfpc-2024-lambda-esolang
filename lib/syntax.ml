@@ -216,15 +216,34 @@ module Combinators = struct
     | _ -> -1
 end
 
+module ComFv = struct
+  type t = [ `Com of Combinators.t | `Fv of int ]
+
+  let pp fmt = function
+    | `Fv x -> Format.fprintf fmt "a%d" x
+    | `Com _ as v -> Combinators.pp_com_str fmt v
+
+  module Order = struct
+    type nonrec t = t
+
+    let compare (m : t) (n : t) =
+      match (m, n) with
+      | `Com v, `Com w -> Combinators.compare v w
+      | `Com _, `Fv _ -> 1
+      | `Fv _, `Com _ -> -1
+      | `Fv v, `Fv w -> Int.compare v w
+  end
+end
+
 module ComStrFv = struct
-  type com_str_fv = [ `Com of Combinators.t | `Str of string | `Fv of int ]
+  type t = [ `Com of Combinators.t | `Str of string | `Fv of int ]
 
   let pp fmt = function
     | `Fv x -> Format.fprintf fmt "a%d" x
     | (`Com _ | `Str (_ : string)) as v -> Combinators.pp_com_str fmt v
 
   module Order = struct
-    type t = com_str_fv
+    type nonrec t = t
 
     let compare (m : t) (n : t) =
       match (m, n) with
@@ -662,11 +681,30 @@ module DeBruijn = struct
     | App (m, n) -> size m + size n + 1
 
   let to_hash =
+    let rec aux fmt m =
+      match m with
+      | Var v -> Format.fprintf fmt "%d" v
+      | Abs m -> Format.fprintf fmt ".%a" aux m
+      | App (m, n) -> Format.fprintf fmt "(%a %a)" aux m aux n
+    in
+    aux
+
+  let xor_shift_rand x =
+    let x = x lxor (x lsl 13) in
+    let x = x lxor (x lsr 7) in
+    let x = x lxor (x lsl 17) in
+    x
+
+  let to_xor_hash =
+    let next_hash x =
+      (* (x + 123546789) mod 2356234135347 *)
+      xor_shift_rand x
+    in
     let rec aux m =
       match m with
-      | Var v -> string_of_int v
-      | Abs m -> "." ^ aux m
-      | App (m, n) -> Format.asprintf "(%s %s)" (aux m) (aux n)
+      | Var v -> next_hash ((next_hash v lsl 2) lxor 1)
+      | Abs m -> next_hash ((aux m lsl 2) lxor 2)
+      | App (m, n) -> next_hash (((aux m + (123 * aux n)) lsl 2) lxor 3)
     in
     aux
 
@@ -750,7 +788,7 @@ module DeBruijn = struct
     let base_size = size m in
     let step = ref 0 in
 
-    let _pp fmt m = Format.fprintf fmt "%s" (to_hash m) in
+    (* let _pp fmt m = Format.fprintf fmt "%s" (to_hash m) in *)
     let rec loop m =
       if size m > base_size * 100 then raise StepLimit;
       if !step > 10000 then raise StepLimit;
@@ -758,7 +796,7 @@ module DeBruijn = struct
       match reduce_one_step m with
       | None -> None
       | Some tm ->
-          Format.eprintf "Reduction: %a => %a@." _pp m _pp tm;
+          (* Format.eprintf "Reduction: %a => %a@." _pp m _pp tm; *)
           if tm = m then Some m else loop tm
     in
     try

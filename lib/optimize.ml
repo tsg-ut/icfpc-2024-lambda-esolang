@@ -73,19 +73,29 @@ let generate_behavior_hash_as_lambda m =
     m
 
 let generate_beta_eta_behavior_hash m =
-  Format.eprintf "%a@." (Combinator.pp ComStrFv.pp) m;
+  (* Format.eprintf "%a@." (Combinator.pp ComStrFv.pp) m; *)
   let m = DeBruijn.of_comb m in
   let+ m = DeBruijn.reduce_beta_eta m in
-  let s = DeBruijn.to_hash m in
-  Format.eprintf "%s@." s;
+  (* let s = DeBruijn.to_hash m in *)
+  (* let s = let _ = m in "13557" in *)
+  let s = Format.asprintf "%a" DeBruijn.to_hash m in
+  (* Format.eprintf "%s@." s; *)
   s
 
-let hash_db = Hashtbl.create 2000000
+let generate_beta_eta_xor_behavior_hash m =
+  (* Format.eprintf "%a@." (Combinator.pp ComStrFv.pp) m; *)
+  let m = DeBruijn.of_comb m in
+  let+ m = DeBruijn.reduce_beta_eta m in
+  (* let s = DeBruijn.to_hash m in *)
+  (* let s = let _ = m in "13557" in *)
+  let s = DeBruijn.to_xor_hash m in
+  (* Format.eprintf "%s@." s; *)
+  s
 
 let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
+  let hash_db = Hashtbl.create 2000000 in
   let table =
-    Array.make_matrix (size + 1) (fvn + 1)
-      ([] : ComStrFv.com_str_fv combinator list)
+    Array.make_matrix (size + 1) (fvn + 1) ([] : ComStrFv.t combinator list)
   in
 
   let register_db c =
@@ -150,7 +160,7 @@ let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
   (* List.iter (fun c ->
        Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
      ) res; *)
-  res
+  (res, hash_db)
 
 (*
    module Pqueue = Psq.Make (Combinator.Order (ComStrFv.Order)) (Int)
@@ -316,18 +326,18 @@ let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
    - whose size is at most `size`
    - who have at most fvn free variables. Each fvs appear at most once. *)
 let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
+  let hash_db = Hashtbl.create 2000000 in
   (* Index: size, fvmin, fvmax, *)
   (* size(com) = size, and fvs(com) = [fvmin,fvmax) *)
   let table = Array.make_matrix (size + 1) (fvn + 1) (Array.make 0 []) in
   for i = 0 to size do
     for j = 0 to fvn do
-      table.(i).(j) <-
-        (Array.make (fvn + 1) [] : ComStrFv.com_str_fv combinator list array)
+      table.(i).(j) <- (Array.make (fvn + 1) [] : ComFv.t combinator list array)
     done
   done;
 
   let register_db l c =
-    match generate_behavior_hash c with
+    match generate_beta_eta_behavior_hash c with
     | None -> true (* XXX: Is this appropriate? *)
     | Some h -> (
         (* let l = ShortestPp.approx_size c in *)
@@ -351,10 +361,11 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
          (fun v -> CVar (`Com v))
          ([ `S; `K; `I; `Iota ] @ List.init 2 (fun i -> `Jot (i + 2)));
 
+  let fv x = `Fv (-x - 1) in
   if fvn > 0 then
     for i = 0 to fvn - 1 do
       table.(1).(i + 1).(i + 1) <- table.(1).(i).(i);
-      table.(1).(i).(i + 1) <- List.filter (register_db 1) [ CVar (`Fv i) ]
+      table.(1).(i).(i + 1) <- List.filter (register_db 1) [ CVar (fv i) ]
     done;
 
   for size = 2 to size do
@@ -425,7 +436,7 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
   (* List.iter (fun c ->
        Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
      ) res; *)
-  res
+  (res, hash_db)
 
 (* let _g =
    Seq.iter (fun (c,l) ->
@@ -436,7 +447,7 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
 
 let _g () =
   Format.eprintf "Run g@Optimize@.";
-  let ms = enumerate_ski_with_size ~size:12 ~fvn:2 in
+  let ms, _ = enumerate_ski_with_size ~size:12 ~fvn:2 in
   List.iter
     (fun c -> Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c)
     ms;
@@ -444,7 +455,7 @@ let _g () =
 
 let _f () =
   Format.eprintf "Run f@Optimize@.";
-  let ms = enumerate_ski_with_size ~size:18 ~fvn:0 in
+  let ms, _ = enumerate_ski_with_size ~size:18 ~fvn:0 in
   Logs.info (fun a -> a "Table generated with size %d" (List.length ms));
 
   (* Hashtbl.iter (fun h _ ->
@@ -457,7 +468,7 @@ let _f () =
         List.map
           (fun n ->
             let s =
-              match generate_behavior_hash (CApp (m, n)) with
+              match generate_beta_eta_behavior_hash (CApp (m, n)) with
               | None -> "None"
               | Some h -> h
             in
@@ -481,24 +492,22 @@ let _f () =
       then ()
       else (
         Format.eprintf "%30s : "
-          (Format.asprintf "%a" (Combinator.safe_pp ComStrFv.pp) m);
+          (Format.asprintf "%a" (Combinator.safe_pp ComFv.pp) m);
         List.iter (fun s -> Format.eprintf " %20s |" s) hs;
         Format.eprintf "@.");
       flush_all ())
     ms;
   assert false
 
-let init_hash_db =
-  cached (fun () ->
-      (* let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
-      let _ = enumerate_ski_with_size ~size:14 ~fvn:2 in
+(* let init_hash_db =
+   cached (fun () ->
 
-      (* Hashtbl.iter
-         (fun h (c, _) ->
-           Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
-         hash_db; *)
-      (* assert false; *)
-      ())
+       (* Hashtbl.iter
+          (fun h (c, _) ->
+            Format.eprintf "HashResult %s => %a\n" h pp_ski_fv_str_combinator c)
+          hash_db; *)
+       (* assert false; *)
+       ()) *)
 
 let com_to_com_str :
     Combinators.t combinator -> [> `Com of Combinators.t ] combinator =
@@ -517,8 +526,8 @@ let com_str_to_com :
   in
   aux
 
-let enumerate_partial_repr (m : ComStrFv.com_str_fv combinator) ~(vn : int) =
-  let rec aux (m : ComStrFv.com_str_fv combinator) ~(vn : int) ~(off : int) =
+let enumerate_partial_repr (m : ComStrFv.t combinator) ~(vn : int) =
+  let rec aux (m : ComStrFv.t combinator) ~(vn : int) ~(off : int) =
     match m with
     | CVar _ ->
         if vn = 0 then [ (m, fun m -> m) ]
@@ -552,21 +561,59 @@ let enumerate_partial_repr (m : ComStrFv.com_str_fv combinator) ~(vn : int) =
   in
   List.concat_map (fun x -> x) (List.init (vn + 1) (fun vn -> aux m ~vn ~off:0))
 
-module TermSet = Set.Make (Combinator.Order (ComStrFv.Order))
+let enumerate_partial_repr_comfv (m : ComFv.t combinator) ~(vn : int) =
+  let fv x = `Fv (-x - 1) in
+  let rec aux (m : ComFv.t combinator) ~(vn : int) ~(off : int) =
+    match m with
+    | CVar _ ->
+        if vn = 0 then [ (m, fun m -> m) ]
+        else if vn = 1 then [ (CVar (fv off), fun n -> subst n (fv off) m) ]
+        else []
+    | CApp (m, n) as o ->
+        if vn = 0 then [ (o, fun m -> m) ]
+        else
+          let rems =
+            List.init (vn + 1) (fun i ->
+                let tm = aux m ~vn:i ~off in
+                let tn = aux n ~vn:(vn - i) ~off:(off + i) in
+                List.concat_map
+                  (fun (m, fm) ->
+                    List.concat_map
+                      (fun (n, fn) ->
+                        let base = [ (CApp (m, n), fun o -> fn (fm o)) ] in
+                        if
+                          i = 1
+                          && vn - i = 1
+                          && fm (CVar (fv off)) = fn (CVar (fv (off + 1)))
+                        then (CApp (m, lift_fv (-1) n), fun o -> fm o) :: base
+                        else base)
+                      tn)
+                  tm
+                |> List.filter (fun (x, _) -> ShortestPp.str_based_size x < 50))
+            |> List.concat_map (fun x -> x)
+          in
+          if vn = 1 then (CVar (fv off), fun n -> subst n (fv off) o) :: rems
+          else rems
+  in
+  List.concat_map (fun x -> x) (List.init (vn + 1) (fun vn -> aux m ~vn ~off:0))
+
+module TermSet = Set.Make (Combinator.Order (ComFv.Order))
 
 let is_optimal = ref TermSet.empty
 
-let optimize_with_simpler_term m =
+let optimize_with_simpler_term hash_db m =
+  (* let pp = pp_ski_fv_str_combinator in *)
+  let pp = Combinator.pp ComFv.pp in
   let rec aux m =
     if TermSet.mem m !is_optimal then m
     else
       (* let ml = ShortestPp.approx_size m in *)
       let ml = ShortestPp.str_based_size m in
-      let thms = enumerate_partial_repr m ~vn:2 in
-      (* (if String.length ms < 100 then begin
-         Format.eprintf "Base %s\n" ms;
+      let thms = enumerate_partial_repr_comfv m ~vn:2 in
+      (* (if ml < 100 then begin
+         Logs.info (fun a -> a "Base %a" pp m);
          List.iter (fun (tm,f) ->
-           Format.eprintf "%a / %a\n" pp_ski_fv_str_combinator tm pp_ski_fv_str_combinator (f m)
+          Logs.info (fun a -> a "%a / %a" pp tm pp (f m))
          ) thms end);
       *)
       let thm =
@@ -579,7 +626,7 @@ let optimize_with_simpler_term m =
             match acc with
             | Some (tm, _, _, _) when tm <> m -> acc
             | Some _ | None -> (
-                match generate_behavior_hash pm with
+                match generate_beta_eta_behavior_hash pm with
                 | Some h -> (
                     (* Format.eprintf "pm: %a -> h: %s\n" pp_ski_fv_str_combinator pm h; *)
                     match Hashtbl.find_opt hash_db h with
@@ -595,9 +642,7 @@ let optimize_with_simpler_term m =
       match thm with
       | Some (tm, h, pm, _) when tm <> m ->
           Logs.info (fun a ->
-              a "Reduce %a => %a by %a with pm %a" pp_ski_fv_str_combinator m
-                pp_ski_fv_str_combinator tm pp_ski_fv_str_combinator h
-                pp_ski_fv_str_combinator pm;
+              a "Reduce %a => %a by %a with pm %a" pp m pp tm pp h pp pm;
               flush_all ());
           tm
       | _ ->
@@ -610,23 +655,30 @@ let optimize_with_simpler_term m =
   let m = aux m in
   m
 
-let optimize m =
-  let () = init_hash_db () in
-  let rec loop m cnt =
-    if cnt >= 15 then m
-    else
-      let tm = optimize_with_simpler_term m in
-      (* Format.eprintf "Optimized: %a\n" (Combinator.pp ComStrFv.pp) tm; *)
-      if tm = m then tm else loop tm (cnt + 1)
-  in
-  let m = com_to_com_str m in
-  let m = loop m 0 in
-  let m = com_str_to_com m in
-  (* Format.eprintf "size_of_optimal: %d\n" (TermSet.cardinal !is_optimal); *)
-  flush_all ();
-  m
+let optimize () =
+  (* let _, hash_db = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
+  (* let _, hash_db = enumerate_ski_with_size ~size:14 ~fvn:2 in *)
+  let _, hash_db = enumerate_ski_with_size ~size:14 ~fvn:2 in
+
+  fun m ->
+    (* let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
+    (* let _ = enumerate_ski_with_size ~size:14 ~fvn:2 in *)
+    let rec loop m cnt =
+      if cnt >= 15 then m
+      else
+        let tm = optimize_with_simpler_term hash_db m in
+        (* Format.eprintf "Optimized: %a\n" (Combinator.pp ComStrFv.pp) tm; *)
+        if tm = m then tm else loop tm (cnt + 1)
+    in
+    let m = com_to_com_str m in
+    let m = loop m 0 in
+    let m = com_str_to_com m in
+    (* Format.eprintf "size_of_optimal: %d\n" (TermSet.cardinal !is_optimal); *)
+    flush_all ();
+    m
 
 let optimize_only_annot m =
+  let optimize = optimize () in
   let unknown_str s = failwith ("Unknown str@optimize_only_annot: " ^ s) in
   let rec aux m =
     match m with
