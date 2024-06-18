@@ -49,7 +49,7 @@ let _ =
       res
     else
       let res = Ski.ski res in
-      Optimize.optimize res
+      Optimize.optimize () res
   in
   (* let res = Syntax.Combinator.combinator_to_str res in *)
   Format.printf "%a\n" Syntax.Combinator.ShortestPp.pp res;

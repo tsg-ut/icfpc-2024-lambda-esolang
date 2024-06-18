@@ -673,21 +673,28 @@ module Combinator = struct
 end
 
 module DeBruijn = struct
-  type t = Var of int | Abs of t | App of t * t
+  type t = { size : int; v : v }
+  and v = Var of int | Abs of t | App of t * t
 
-  let rec size = function
-    | Var _ -> 1
-    | Abs m -> size m + 1
-    | App (m, n) -> size m + size n + 1
+  let _Var v = { size = 1; v = Var v }
+  let _Abs m = { size = m.size + 1; v = Abs m }
+  let _App m n = { size = m.size + n.size + 1; v = App (m, n) }
+
+  (* let size = function
+     | Var _ -> 1
+     | Abs m -> size m + 1
+     | App (m, n) -> size m + size n + 1 *)
+
+  let size m = m.size
 
   let to_hash =
     let rec aux fmt m =
       match m with
       | Var v -> Format.fprintf fmt "%d" v
-      | Abs m -> Format.fprintf fmt ".%a" aux m
-      | App (m, n) -> Format.fprintf fmt "(%a %a)" aux m aux n
+      | Abs m -> Format.fprintf fmt ".%a" aux m.v
+      | App (m, n) -> Format.fprintf fmt "(%a %a)" aux m.v aux n.v
     in
-    aux
+    fun fmt m -> aux fmt m.v
 
   let xor_shift_rand x =
     let x = x lxor (x lsl 13) in
@@ -703,10 +710,10 @@ module DeBruijn = struct
     let rec aux m =
       match m with
       | Var v -> next_hash ((next_hash v lsl 2) lxor 1)
-      | Abs m -> next_hash ((aux m lsl 2) lxor 2)
-      | App (m, n) -> next_hash (((aux m + (123 * aux n)) lsl 2) lxor 3)
+      | Abs m -> next_hash ((aux m.v lsl 2) lxor 2)
+      | App (m, n) -> next_hash (((aux m.v + (123 * aux n.v)) lsl 2) lxor 3)
     in
-    aux
+    fun m -> aux m.v
 
   let of_lambda =
     let index v =
@@ -717,36 +724,36 @@ module DeBruijn = struct
       aux 0
     in
     let rec aux env = function
-      | Lambda.Var v -> Var (index v env)
-      | Lambda.Abs (v, m) -> Abs (aux (v :: env) m)
-      | Lambda.App (m, n) -> App (aux env m, aux env n)
+      | Lambda.Var v -> _Var (index v env)
+      | Lambda.Abs (v, m) -> _Abs (aux (v :: env) m)
+      | Lambda.App (m, n) -> _App (aux env m) (aux env n)
     in
     fun m -> aux [] m
 
   let is_0_free =
     let rec aux d = function
       | Var x -> if x = d then false else true
-      | Abs m -> aux (d + 1) m
-      | App (m, n) -> aux d m && aux d n
+      | Abs m -> aux (d + 1) m.v
+      | App (m, n) -> aux d m.v && aux d n.v
     in
-    aux 0
+    fun m -> aux 0 m.v
 
   let remove_eta m =
     let rec aux d = function
-      | Var x when x > d -> Var (x - 1)
-      | Var x when x < d -> Var x
+      | Var x when x > d -> _Var (x - 1)
+      | Var x when x < d -> _Var x
       | Var _ -> assert false
-      | Abs m -> Abs (aux (d + 1) m)
-      | App (m, n) -> App (aux d m, aux d n)
+      | Abs m -> _Abs (aux (d + 1) m.v)
+      | App (m, n) -> _App (aux d m.v) (aux d n.v)
     in
-    aux 0 m
+    aux 0 m.v
 
   let lift_large_fv d =
     let rec aux nd = function
-      | Var x when x >= nd -> Var (x + d)
-      | Var x -> Var x
-      | Abs m -> Abs (aux (nd + 1) m)
-      | App (m, n) -> App (aux nd m, aux nd n)
+      | Var x when x >= nd -> _Var (x + d)
+      | Var x -> _Var x
+      | Abs m -> _Abs (aux (nd + 1) m.v)
+      | App (m, n) -> _App (aux nd m.v) (aux nd n.v)
     in
     aux 0
 
@@ -754,50 +761,60 @@ module DeBruijn = struct
   let beta m n =
     let rec aux d m =
       match m with
-      | Var x when x = d -> lift_large_fv d n
-      | Var x when x < d -> Var x
-      | Var x (* when x > d *) -> Var (x - 1)
-      | Abs m -> Abs (aux (d + 1) m)
-      | App (m, n) -> App (aux d m, aux d n)
+      | Var x when x = d -> lift_large_fv d n.v
+      | Var x when x < d -> _Var x
+      | Var x (* when x > d *) -> _Var (x - 1)
+      | Abs m -> _Abs (aux (d + 1) m.v)
+      | App (m, n) -> _App (aux d m.v) (aux d n.v)
     in
-    aux 0 m
+    aux 0 m.v
 
-  let reduce_beta_one_step m =
-    let rec aux m =
-      match m with
+  let reduce_beta_one_step modified m =
+    let rec beta_aux m =
+      let { v; _ } = m in
+      match v with
       | Var _ -> m
-      | App (Abs m, n) -> beta m n
-      | Abs m -> Abs (aux m)
-      | App (m, n) -> App (aux m, aux n)
+      | App ({ v = Abs m; _ }, n) ->
+          modified := true;
+          beta m n
+      | Abs m -> _Abs (beta_aux m)
+      | App (m, n) -> _App (beta_aux m) (beta_aux n)
     in
-    aux m
+    beta_aux m
 
-  let reduce_eta_one_step m =
-    let rec aux m =
-      match m with
+  let reduce_eta_one_step modified m =
+    let rec eta_aux m =
+      let { v; _ } = m in
+      match v with
       | Var _ -> m
-      | Abs (App (m, Var 0)) when is_0_free m -> remove_eta m
-      | Abs m -> Abs (aux m)
-      | App (m, n) -> App (aux m, aux n)
+      | Abs { v = App (m, { v = Var 0; _ }); _ } when is_0_free m ->
+          modified := true;
+          remove_eta m
+      | Abs m -> _Abs (eta_aux m)
+      | App (m, n) -> _App (eta_aux m) (eta_aux n)
     in
-    aux m
+    eta_aux m
 
   exception StepLimit
 
-  let gen_reduce reduce_one_step m =
+  let gen_reduce modified reduce_one_step m =
     let base_size = size m in
     let step = ref 0 in
 
     (* let _pp fmt m = Format.fprintf fmt "%s" (to_hash m) in *)
     let rec loop m =
-      if size m > base_size * 100 then raise StepLimit;
-      if !step > 10000 then raise StepLimit;
+      if size m > base_size * 3 then raise StepLimit;
+      if !step > 1000 then raise StepLimit;
       step := !step + 1;
-      match reduce_one_step m with
+      let modified_local = ref false in
+      match reduce_one_step modified_local m with
       | None -> None
       | Some tm ->
           (* Format.eprintf "Reduction: %a => %a@." _pp m _pp tm; *)
-          if tm = m then Some m else loop tm
+          if !modified_local then (
+            modified := true;
+            loop tm)
+          else Some m
     in
     try
       let tm = loop m in
@@ -806,17 +823,28 @@ module DeBruijn = struct
     with StepLimit -> (* Format.eprintf "Reduction Timeout: %a\n" pp m; *)
                       None
 
-  let reduce_beta = gen_reduce (fun m -> Some (reduce_beta_one_step m))
-  let reduce_eta = gen_reduce (fun m -> Some (reduce_eta_one_step m))
+  let reduce_beta modified =
+    gen_reduce modified (fun modified m ->
+        Some (reduce_beta_one_step modified m))
+
+  let reduce_eta modified =
+    gen_reduce modified (fun modified m ->
+        Some (reduce_eta_one_step modified m))
 
   let reduce_beta_eta =
-    gen_reduce (fun m -> Option.bind (reduce_eta m) reduce_beta)
+    let modified = ref false in
+    gen_reduce modified (fun modified m ->
+        Option.bind (reduce_eta modified m) (reduce_beta modified))
+  (* let reduce_beta_eta m = Some m *)
 
   let rec of_combs =
-    let ls = Abs (Abs (Abs (App (App (Var 2, Var 0), App (Var 1, Var 0))))) in
-    let lk = Abs (Abs (Var 1)) in
-    let li = Abs (Var 0) in
-    let liota = Abs (App (App (Var 0, ls), lk)) in
+    let ls =
+      _Abs
+        (_Abs (_Abs (_App (_App (_Var 2) (_Var 0)) (_App (_Var 1) (_Var 0)))))
+    in
+    let lk = _Abs (_Abs (_Var 1)) in
+    let li = _Abs (_Var 0) in
+    let liota = _Abs (_App (_App (_Var 0) ls) lk) in
 
     fun (c : Combinators.t) ->
       match c with
@@ -835,6 +863,6 @@ module DeBruijn = struct
     | CVar (`Com c) -> of_combs c
     | CVar (`Fv x) ->
         assert (x < 0);
-        Var x
-    | CApp (m, n) -> App (of_comb m, of_comb n)
+        _Var x
+    | CApp (m, n) -> _App (of_comb m) (of_comb n)
 end

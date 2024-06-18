@@ -5,4 +5,5 @@ depends: [
 	"ocamlformat"
 	"alcotest"
 	"logs"
+	"vec"
 ]

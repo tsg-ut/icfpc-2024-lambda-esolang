@@ -69,7 +69,7 @@ let test_decompiler () =
         in
         let th = Optimize.generate_beta_eta_behavior_hash tc in
         let s = Format.asprintf "%a" pp c in
-        Alcotest.(check (option string)) s (Some h) th
+        Alcotest.(check (option int)) s (Some h) th
   done
 
 let test_reduce_lambda () =
@@ -100,7 +100,7 @@ let test_reduce_lambda () =
       let* h = hash m in
       let th = hash tm in
       let s = Format.asprintf "%a -> %a" pp m pp tm in
-      Some (Alcotest.(check (option string)) s (Some h) th)
+      Some (Alcotest.(check (option int)) s (Some h) th)
     in
     ()
   done
@@ -118,7 +118,8 @@ let test_reduce_lambda_one_step () =
       let btm = Syntax.DeBruijn.of_lambda tm in
 
       let bm = Syntax.DeBruijn.of_lambda m in
-      let tbm = Syntax.DeBruijn.reduce_beta_one_step bm in
+      let modified = ref false in
+      let tbm = Syntax.DeBruijn.reduce_beta_one_step modified bm in
 
       let hbtm = hash btm in
       let htbm = hash tbm in

@@ -121,7 +121,7 @@ let is_num_func m =
      is_num_func_narg m args
    | Some s -> Some s *)
 
-let reverse_constants =
+let reverse_constants () =
   Library.load_library ();
   let pp_vn vn = `Str (Format.sprintf "v%d" vn) in
   let pp_hash vn m =
@@ -287,7 +287,7 @@ let hash_based_reduction m =
   | None -> assert false
 
 let decompile m =
-  let m = reverse_constants m in
+  let m = reverse_constants () m in
   let m = com_str_to_com_str_fv m in
   Logs.info (fun a ->
       a "After reverse consts : %a" (Combinator.pp ComStrFv.pp) m);

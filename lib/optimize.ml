@@ -92,6 +92,9 @@ let generate_beta_eta_xor_behavior_hash m =
   (* Format.eprintf "%s@." s; *)
   s
 
+let _ = generate_beta_eta_behavior_hash
+let generate_beta_eta_behavior_hash = generate_beta_eta_xor_behavior_hash
+
 let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
   let hash_db = Hashtbl.create 2000000 in
   let table =
@@ -325,8 +328,122 @@ let enumerate_ski ~(size : int) ~(fvn : int) ~(jotLen : int) =
 (* Generates exprs
    - whose size is at most `size`
    - who have at most fvn free variables. Each fvs appear at most once. *)
-let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
-  let hash_db = Hashtbl.create 2000000 in
+let enumerate_ski_with_size ~hasher ~(size : int) ~(fvn : int) =
+  let hash_db = Hashtbl.create 100000 in
+  (* Index: size, fvmin, fvmax, *)
+  (* size(com) = size, and fvs(com) = [fvmin,fvmax) *)
+  let table : (ComFv.t combinator, [ `R | `W ]) Vec.t array array array =
+    Array.make_matrix (size + 1) (fvn + 1) (Array.make 0 @@ Vec.make ())
+  in
+  for i = 0 to size do
+    for j = 0 to fvn do
+      table.(i).(j) <- Array.make (fvn + 1) @@ Vec.make ()
+    done
+  done;
+
+  let register_db l c =
+    (* let _ = (l,c,hasher) in true *)
+    match hasher c with
+    | None ->
+        true
+        (* XXX: Is this appropriate? *)
+        (* N = 11 で、ここをtrue -> falseにすると 18秒 -> 9秒 くらいになる(途端に増える) *)
+    | Some h -> (
+        (* let l = ShortestPp.approx_size c in *)
+        (* let l = ShortestPp.str_based_size c in *)
+        (* Format.eprintf "Hash %a => %s\n" (Combinator.safe_pp ComStrFv.pp) c h; *)
+        match Hashtbl.find_opt hash_db h with
+        | Some (_, cl) ->
+            if cl > l then (
+              Hashtbl.replace hash_db h (c, l);
+              true)
+            else false
+        | None ->
+            Hashtbl.replace hash_db h (c, l);
+            true)
+  in
+
+  (* 2 + 4 + 8 + 16 ... *)
+  table.(1).(0).(0) <-
+    Vec.of_list
+    @@ List.filter (register_db 1)
+    @@ List.map
+         (fun v -> CVar (`Com v))
+         ([ `S; `K; `I; `Iota ] @ List.init 2 (fun i -> `Jot (i + 2)));
+
+  let fv x = `Fv (-x - 1) in
+  if fvn > 0 then
+    for i = 0 to fvn - 1 do
+      table.(1).(i + 1).(i + 1) <- table.(1).(i).(i);
+      table.(1).(i).(i + 1) <-
+        Vec.of_list @@ List.filter (register_db 1) [ CVar (fv i) ]
+    done;
+
+  for size = 2 to size do
+    for fvmin = 0 to fvn do
+      for fvmax = fvmin to fvn do
+        (* Format.eprintf "Item bef of @@ (%d)(%d)(%d)@." size fvmin fvmax;
+           List.iter (fun c ->
+             Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c;
+           ) table.(size).(fvmin).(fvmax); *)
+        if fvmin = fvmax && fvmin > 0 then
+          table.(size).(fvmin).(fvmin) <- table.(size).(fvmin - 1).(fvmin - 1)
+        else
+          let tv = Vec.make ~capacity:100 () in
+          let push v = if register_db size v then Vec.push v tv else () in
+          (if fvmin = fvmax && size <= 5 then
+             let b =
+               let rec aux k b = if k >= size then b else aux (k + 1) (b * 2) in
+               aux 1 2
+             in
+             List.iter push
+             @@ List.map (fun v -> CVar (`Com v))
+             @@ List.init b (fun i -> `Jot (i + b)));
+
+          for j = 1 to size - 2 do
+            for fvmid = fvmin to fvmax do
+              let t1 = table.(j).(fvmin).(fvmid) in
+              let t2 = table.(size - j - 1).(fvmid).(fvmax) in
+              (* Format.eprintf "Try (%d)(%d)(%d) & (%d)(%d)(%d)@."
+                 j fvmin fvmid
+                 (size - j - 1) (fvmid) (fvmax); *)
+              Vec.iter
+                (fun c1 -> Vec.iter (fun c2 -> push (CApp (c1, c2))) t2)
+                t1;
+              if fvmin <> fvmax then
+                Vec.iter
+                  (fun c1 -> Vec.iter (fun c2 -> push (CApp (c2, c1))) t2)
+                  t1
+            done
+          done;
+          (* Format.eprintf "size @@ (%d)(%d)(%d) : %d\n" i fvmin fvmax (List.length tls); *)
+          table.(size).(fvmin).(fvmax) <- tv
+          (* Format.eprintf "Item of @@ (%d)(%d)(%d)@." size fvmin fvmax;
+             List.iter (fun c ->
+               Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c;
+             ) table.(size).(fvmin).(fvmax); *)
+      done
+    done
+  done;
+
+  (* res計算はほぼ誤差みたいな時間しかかかってない *)
+  (* そもそもあんま良くわからないものを計算していそう *)
+  (* let idxs =
+       List.init size (fun s -> List.init (fvn + 1) (fun tfv -> (s, tfv)))
+       |> List.concat
+     in
+     let res = List.concat_map (fun (s, tfv) -> Vec.to_list @@ table.(s).(0).(tfv)) idxs in
+     Logs.info (fun a -> a "Hash Table generated with size %d" (List.length res)); *)
+  Logs.info (fun a -> a "DB size %d" (Hashtbl.length hash_db));
+  flush_all ();
+  (* assert false; *)
+  (* List.iter (fun c ->
+       Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
+     ) res; *)
+  (table, hash_db)
+
+let enumerate_ski_with_size_old ~hasher ~(size : int) ~(fvn : int) =
+  let hash_db = Hashtbl.create 100000 in
   (* Index: size, fvmin, fvmax, *)
   (* size(com) = size, and fvs(com) = [fvmin,fvmax) *)
   let table = Array.make_matrix (size + 1) (fvn + 1) (Array.make 0 []) in
@@ -337,7 +454,7 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
   done;
 
   let register_db l c =
-    match generate_beta_eta_behavior_hash c with
+    match hasher c with
     | None -> true (* XXX: Is this appropriate? *)
     | Some h -> (
         (* let l = ShortestPp.approx_size c in *)
@@ -437,7 +554,6 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
        Format.eprintf "%a\n" pp_ski_fv_str_combinator c;
      ) res; *)
   (res, hash_db)
-
 (* let _g =
    Seq.iter (fun (c,l) ->
      Format.eprintf "%3d : %a@." l (Combinator.pp ComStrFv.pp) c;
@@ -446,58 +562,61 @@ let enumerate_ski_with_size ~(size : int) ~(fvn : int) =
    assert false *)
 
 let _g () =
-  Format.eprintf "Run g@Optimize@.";
-  let ms, _ = enumerate_ski_with_size ~size:12 ~fvn:2 in
-  List.iter
-    (fun c -> Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c)
-    ms;
+  let size = 10 in
+  Format.eprintf "Run g@Aft Optimize: size %d@." size;
+  let _ms, _ =
+    enumerate_ski_with_size ~hasher:generate_beta_eta_behavior_hash ~size ~fvn:2
+  in
+  (* List.iter
+     (fun c -> Format.eprintf "%a@." (Combinator.safe_pp ComStrFv.pp) c)
+     ms; *)
   assert false
 
-let _f () =
-  Format.eprintf "Run f@Optimize@.";
-  let ms, _ = enumerate_ski_with_size ~size:18 ~fvn:0 in
-  Logs.info (fun a -> a "Table generated with size %d" (List.length ms));
+(* let _f () =
+   Format.eprintf "Run f@Optimize@.";
+   let ms, _ = enumerate_ski_with_size ~size:18 ~fvn:0 in
+   Logs.info (fun a -> a "Table generated with size %d" (List.length ms));
 
-  (* Hashtbl.iter (fun h _ ->
-       Format.eprintf "Hash example: %s@." h
-     ) hash_db;
-     assert false; *)
-  List.iter
-    (fun m ->
-      let hs =
-        List.map
-          (fun n ->
-            let s =
-              match generate_beta_eta_behavior_hash (CApp (m, n)) with
-              | None -> "None"
-              | Some h -> h
-            in
-            s)
-          ((* [ CApp (CVar (`Com `K), CApp (CVar (`Com `K), CVar (`Com `I))) ] *)
-           [ CVar (`Com `I) ]
-          @ List.map (fun c -> CVar (`Com c)) [ `K; `I; `Jot 2 ])
-      in
-      if
-        List.for_all (fun s -> s = List.hd hs) hs
-        || List.exists (fun s -> String.length s > 15) hs
-        || List.exists (fun s -> s = "None") hs
-        || List.nth hs 1 <> List.nth hs 2
-        (* || List.nth hs 0 = List.nth hs 1 *)
-        (* || List.nth hs 0 = List.nth hs 3 *)
-        || List.nth hs 1 = List.nth hs 3
-        (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 1)) *)
-        (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 3)) *)
-        (* || List.nth hs 1 <> List.nth hs 3 *)
-        (* || List.nth hs 1 <> "3_`v0v1" || (List.nth hs 2 <> List.nth hs 0) *)
-      then ()
-      else (
-        Format.eprintf "%30s : "
-          (Format.asprintf "%a" (Combinator.safe_pp ComFv.pp) m);
-        List.iter (fun s -> Format.eprintf " %20s |" s) hs;
-        Format.eprintf "@.");
-      flush_all ())
-    ms;
-  assert false
+   (* Hashtbl.iter (fun h _ ->
+        Format.eprintf "Hash example: %s@." h
+      ) hash_db;
+      assert false; *)
+   List.iter
+     (fun m ->
+       let hs =
+         List.map
+           (fun n ->
+             let s =
+               match generate_beta_eta_behavior_hash (CApp (m, n)) with
+               | None -> "None"
+               | Some h -> h
+             in
+             s)
+           ((* [ CApp (CVar (`Com `K), CApp (CVar (`Com `K), CVar (`Com `I))) ] *)
+            [ CVar (`Com `I) ]
+           @ List.map (fun c -> CVar (`Com c)) [ `K; `I; `Jot 2 ])
+       in
+       if
+         List.for_all (fun s -> s = List.hd hs) hs
+         || List.exists (fun s -> String.length s > 15) hs
+         || List.exists (fun s -> s = "None") hs
+         || List.nth hs 1 <> List.nth hs 2
+         (* || List.nth hs 0 = List.nth hs 1 *)
+         (* || List.nth hs 0 = List.nth hs 3 *)
+         || List.nth hs 1 = List.nth hs 3
+         (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 1)) *)
+         (* || (not (String.starts_with ~prefix:"3_" @@ List.nth hs 3)) *)
+         (* || List.nth hs 1 <> List.nth hs 3 *)
+         (* || List.nth hs 1 <> "3_`v0v1" || (List.nth hs 2 <> List.nth hs 0) *)
+       then ()
+       else (
+         Format.eprintf "%30s : "
+           (Format.asprintf "%a" (Combinator.safe_pp ComFv.pp) m);
+         List.iter (fun s -> Format.eprintf " %20s |" s) hs;
+         Format.eprintf "@.");
+       flush_all ())
+     ms;
+   assert false *)
 
 (* let init_hash_db =
    cached (fun () ->
@@ -658,7 +777,10 @@ let optimize_with_simpler_term hash_db m =
 let optimize () =
   (* let _, hash_db = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
   (* let _, hash_db = enumerate_ski_with_size ~size:14 ~fvn:2 in *)
-  let _, hash_db = enumerate_ski_with_size ~size:14 ~fvn:2 in
+  let _, hash_db =
+    enumerate_ski_with_size ~hasher:generate_beta_eta_behavior_hash ~size:14
+      ~fvn:2
+  in
 
   fun m ->
     (* let _ = enumerate_ski ~size:4 ~fvn:2 ~jotLen:4 in *)
