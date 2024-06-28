@@ -674,18 +674,78 @@ end
 
 module Icfpc = struct
   type t = [
+    `Fv of int |
     `Int of int |
     `Bool of bool | 
-    `Str of string | `Var of string | `Uop of string | `Bop of string]
+    `Str of string | `Var of string | `Uop of string | `Bop of string
+    | `Top of string ]
   
-  let pp fmt v =
+  let my_pp fmt (v:t) =
     match v with
     | `Bool b -> Format.fprintf fmt "%b" b
+    | `Fv i -> Format.fprintf fmt "v%d" i
     | `Int i -> Format.fprintf fmt "%d" i
     | `Str s -> Format.fprintf fmt "\"%s\"" s
     | `Var s -> Format.fprintf fmt "V(%s)" s
     | `Uop s -> Format.fprintf fmt "U(%s)" s
     | `Bop s -> Format.fprintf fmt "B(%s)" s
+    | `Top s -> Format.fprintf fmt "T(%s)" s
+  
+
+    let s2int s =
+      String.fold_left (fun i c -> i * 94 + (Char.code c - Char.code '!')) 0 s
+    
+    let int2s =
+      let rec aux i =
+        if i = 0 then ""
+        else (aux (i / 94)) ^ (String.make 1 (Char.chr @@ (i mod 94) + Char.code '!'))
+      in
+        aux
+    
+        
+    let read2s =
+      let table = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`|~ \n"
+      in
+      fun s -> (
+      String.map (fun c ->
+        let ti =
+          match String.index_from_opt table 0 c with
+          | Some i -> i
+          | None -> 
+              Format.eprintf "Invalid char: %c@." c;
+              assert false 
+        in
+        (Char.chr (Char.code '!' + ti)) ) s
+      )
+  
+    let s2read =
+      let table = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`|~ \n"
+      in
+      fun s -> (
+      String.map (fun c -> 
+        String.get table (Char.code c - Char.code '!')) s
+      )
+  
+  let resolve_var_to_fv m =
+    let open Lambda in
+    let gen = gen_gen_fv 0 in
+      let rec aux env (m:t Lambda.lambda) : t Lambda.lambda =
+        match m with
+        | Var (`Var v) ->
+            begin match List.assoc_opt v env with
+            | None -> failwith (Format.sprintf "Undefined Var: %s" v)
+            | Some i -> Var(i)
+            end
+        | Var d -> Var d
+        | Abs(`Var v, m) -> 
+            let i = gen () in  
+            Abs(i,(aux ((v,i):: env) m))
+        | Abs (v,_) -> failwith (Format.asprintf "Invalid Var: %a" my_pp v)
+        | App(m,n) -> App (aux env m, aux env n)
+      in
+    aux [] m
+  
+  let pp = my_pp
 end
 
 module DeBruijn = struct

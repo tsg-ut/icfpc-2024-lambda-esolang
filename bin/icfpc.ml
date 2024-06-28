@@ -23,4 +23,12 @@ let _ =
 
   Logs.info (fun a ->
       a "Inputted: %a" Syntax.(Lambda.pp Icfpc.pp) res);
+  
+  let res = Syntax.Icfpc.resolve_var_to_fv res in
+  let res = Interpreter.reduce_lambda_icfpc res in
+  
+  match res with
+  | None -> assert false 
+  | Some res -> Logs.info (fun a ->
+    a "Reduced: %a" Syntax.(Lambda.pp Icfpc.pp) res);
   ()
