@@ -93,7 +93,7 @@ let reduce_lambda_icfpc_greedy =
     match m with
     | Var _ -> m
     | App (Abs (`Fv x, m), n) -> aux @@ Lambda.fv_safe_subst m x n
-    | Abs (x, m) -> Abs (x, aux m)
+    | Abs (x, m) -> Abs (x, m)
     | App (App (App (Var (`Top op), m), n), o) -> (
         let m = aux m in
         match op with
@@ -141,8 +141,13 @@ let reduce_lambda_icfpc_greedy =
         )
     | App (m, n) ->
         let tm = aux m in
-        let tn = aux n in
-        if m = tm && n = tn then _mm else aux @@ App (tm, tn)
+        if m <> tm then begin
+          aux @@ App (tm, n)
+        end else begin
+          let tn = aux n in
+          if n <> tn then aux @@ App (tm, tn) else _mm
+        end
+
   in
   fun m -> aux m
 
