@@ -8,7 +8,6 @@
  (modules decompiler)
  (libraries str lambda_esolang))
 
-
 (executable
  (name icfpc)
  (modules icfpc)
