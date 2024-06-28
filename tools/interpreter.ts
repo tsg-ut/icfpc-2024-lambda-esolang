@@ -1,3 +1,5 @@
+// Run: npx tsx ./interpreter.ts
+
 import { inspect } from "util";
 
 type Token = BooleanToken | IntegerToken | StringToken | UnaryToken | BinaryToken | IfToken | LambdaToken | VariableToken;

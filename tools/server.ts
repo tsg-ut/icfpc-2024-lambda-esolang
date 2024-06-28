@@ -1,3 +1,5 @@
+// Run: npx tsx watch server.ts
+
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import storage from 'node-persist';
