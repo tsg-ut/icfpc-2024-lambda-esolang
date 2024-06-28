@@ -672,6 +672,22 @@ module Combinator = struct
   end
 end
 
+module Icfpc = struct
+  type t = [
+    `Int of int |
+    `Bool of bool | 
+    `Str of string | `Var of string | `Uop of string | `Bop of string]
+  
+  let pp fmt v =
+    match v with
+    | `Bool b -> Format.fprintf fmt "%b" b
+    | `Int i -> Format.fprintf fmt "%d" i
+    | `Str s -> Format.fprintf fmt "\"%s\"" s
+    | `Var s -> Format.fprintf fmt "V(%s)" s
+    | `Uop s -> Format.fprintf fmt "U(%s)" s
+    | `Bop s -> Format.fprintf fmt "B(%s)" s
+end
+
 module DeBruijn = struct
   type t = { size : int; v : v }
   and v = Var of int | Abs of t | App of t * t

@@ -7,3 +7,9 @@
  (name decompiler)
  (modules decompiler)
  (libraries str lambda_esolang))
+
+
+(executable
+ (name icfpc)
+ (modules icfpc)
+ (libraries str lambda_esolang))
