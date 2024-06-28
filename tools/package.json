@@ -1,0 +1,25 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/static": "^7.0.4",
+    "@fastify/view": "^9.1.0",
+    "@types/node": "^20.14.9",
+    "async-mutex": "^0.5.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "fastify": "^4.28.0",
+    "node-persist": "^4.0.1",
+    "pino-pretty": "^11.2.1",
+    "tsx": "^4.15.8",
+    "typescript": "^5.5.2"
+  }
+}
