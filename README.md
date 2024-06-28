@@ -2,11 +2,10 @@
 1. install opam
 2. `$ opam switch create . && opam install .`
 
-# How to use
 
+# How to use
 ```
 $ cat i
-d. ($cons *65 ($cons *256 (x. x)))
-$ dune exec ./bin/main.exe < i > o.lazy
+B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK
+$ dune exec ./bin/icfpc.exe < i
 ```
-`o.lazy` is a LazyK code that prints 'c'.
