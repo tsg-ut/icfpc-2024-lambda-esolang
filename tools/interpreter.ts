@@ -1,6 +1,8 @@
 // Run: npx tsx ./interpreter.ts
 
 import { inspect } from "util";
+import assert from 'assert';
+import util from 'util'; 
 
 type Token = BooleanToken | IntegerToken | StringToken | UnaryToken | BinaryToken | IfToken | LambdaToken | VariableToken;
 type Environment = Map<number, [Environment, Token]>;
@@ -44,8 +46,37 @@ function parse(tokens: string[]): Token {
   }
 }
 
+function inspectToken(token: Token): string {
+  switch (token.type) {
+    case 'boolean':
+      return token.value ? 'true' : 'false';
+    case 'integer':
+      return token.value.toString();
+    case 'string':
+      return JSON.stringify(token.value);
+    case 'unary':
+      return `(${token.operator} ${inspectToken(token.operand)})`;
+    case 'binary':
+      return `(${token.operator} ${inspectToken(token.left)} ${inspectToken(token.right)})`;
+    case 'if':
+      return `(if ${inspectToken(token.condition)} then ${inspectToken(token.thenBranch)} else ${inspectToken(token.elseBranch)})`;
+    case 'lambda':
+      return `(λ${token.variable} ${inspectToken(token.body)})`;
+    case 'variable':
+      return `v${token.variable}`;
+    default:
+      throw new Error(`Unknown token type: ${(token as any).type}`);
+  }
+}
+
+let evacn = 0;
+
 function evaluate(token: Token, env: Environment = new Map()): any {
-  // console.log('evaluate', token, env);
+  if(evacn > 100){
+    process.exit(1);
+  }
+  // evacn += 1;
+  // console.log('evaluate', inspectToken(token), env);
   switch (token.type) {
     case 'boolean':
       return token.value;
@@ -64,6 +95,12 @@ function evaluate(token: Token, env: Environment = new Map()): any {
       }
     case 'binary':
       const left = evaluate(token.left, env);
+      if(token.operator === "$"){
+          console.log('apply', inspectToken(token.left), inspectToken(token.right), env);
+          const leftToken = evaluate(token.left, env);
+          console.log('leftToken', leftToken);
+          return leftToken(token.right, env);
+      }
       const right = evaluate(token.right, env);
       switch (token.operator) {
         case '+': return left + right;
@@ -79,21 +116,18 @@ function evaluate(token: Token, env: Environment = new Map()): any {
         case '.': return left + right;
         case 'T': return right.substring(0, left);
         case 'D': return right.substring(left);
-        case '$': {
-          // console.log('apply', token.left, token.right, env);
-          const leftToken = evaluate(token.left, env);
-          // console.log('leftToken', leftToken);
-          return leftToken(token.right, env);
-        }
+
         default: throw new Error(`Unknown binary operator: ${token.operator}`);
       }
     case 'if':
       const condition = evaluate(token.condition, env);
       return evaluate(condition ? token.thenBranch : token.elseBranch, env);
     case 'lambda':
-      return (arg: Token, lambdaEnv: Environment) => { 
-        const tokenBody2 = alphaconvert(token.body);
-        return evaluate(tokenBody2, new Map(env).set(token.variable, [lambdaEnv, arg]));
+      return (arg: Token, lambdaEnv: Environment) => {
+        console.log("evaluating lambda body",inspectToken(token));
+        const token2 = alphaconvert({...token});
+        assert(token2.type === "lambda");
+        return evaluate(token2.body, new Map(env).set(token2.variable, [lambdaEnv, arg]));
       };
     case 'variable':
       const tokenEnv = env.get(token.variable);
@@ -199,11 +233,11 @@ function parseCustomString(input: string): string {
 
 // Example usage:
 const tokens = 'B$ L+ B. B. SF B$ B$ v+ Sl IR B$ B$ v+ B. S~ B$ B$ v+ Sl IS IR L" B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L$ L# ? B= v# I" v" B. v" B$ v$ B- v# I"'.split(" ");
-// const tokens = "B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK".split(" ");
+// const tokens = 'B$ B$ Lf B$ Lx B$ vf B$ vx vx Lx B$ vf B$ vx vx Lh Ln ? B= vn I! I" B* B$ vh B- vn I" vn I&'.split(" ");
+// const tokens = 'B$ Lf B$ Lx B$ vf B$ vx vx Lx B$ vf B$ vx vx Lh Ln ? B= vn I! I" B* B$ vh B- vn I" vn'.split(" ");
 const ast = parse(tokens);
 console.log(inspect(ast, false, null, true));
 console.log(evaluate(ast)); // Output: 5
-
 /*
 Y(f) = f(Y(f))
 f(h, n) = n == 0 ? 1 : h(n - 1) * n
