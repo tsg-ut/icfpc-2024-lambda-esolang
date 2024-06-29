@@ -678,7 +678,6 @@ module Icfpc = struct
     | `Int of Z.t
     | `Bool of bool
     | `Str of string
-    | `Var of string
     | `Uop of string
     | `Bop of string
     | `Top of string ]
@@ -689,12 +688,9 @@ module Icfpc = struct
     | `Fv i -> Format.fprintf fmt "v%d" i
     | `Int i -> Format.fprintf fmt "%a" Z.pp_print i
     | `Str s -> Format.fprintf fmt "\"%s\"" s
-    | `Var s -> Format.fprintf fmt "V(%s)" s
     | `Uop s -> Format.fprintf fmt "U(%s)" s
     | `Bop s -> Format.fprintf fmt "B(%s)" s
     | `Top s -> Format.fprintf fmt "T(%s)" s
-
-
 
   let s2int s =
     String.fold_left (fun i c -> (i * 94) + (Char.code c - Char.code '!')) 0 s
@@ -750,26 +746,52 @@ module Icfpc = struct
     fun s ->
       String.map (fun c -> String.get table (Char.code c - Char.code '!')) s
 
-  let resolve_var_to_fv m =
-    let open Lambda in
-    let gen = gen_gen_fv 0 in
-    let rec aux env (m : t Lambda.lambda) : t Lambda.lambda =
-      match m with
-      | Var (`Var v) -> (
-          match List.assoc_opt v env with
-          | None -> failwith (Format.sprintf "Undefined Var: %s" v)
-          | Some i -> Var i)
-      | Var d -> Var d
-      | Abs (`Var v, m) ->
-          let i = gen () in
-          Abs (i, aux ((v, i) :: env) m)
-      | Abs (v, _) -> failwith (Format.asprintf "Invalid Var: %a" my_pp v)
-      | App (m, n) -> App (aux env m, aux env n)
-    in
-    aux [] m
-
   let pp = my_pp
+
+  let icfpc_pp fmt (v : t) =
+    match v with
+    | `Bool b -> Format.fprintf fmt "%s" (if b then "T" else "F")
+    | `Fv i -> Format.fprintf fmt "v%s" (int2s i)
+    | `Int i -> Format.fprintf fmt "I%s" (z2s i)
+    | `Str s -> Format.fprintf fmt "S%s" (read2s s)
+    | `Uop s -> Format.fprintf fmt "U%s" s
+    | `Bop s -> Format.fprintf fmt "B%s" s
+    | `Top s -> Format.fprintf fmt "T%s" s
 end
+
+let icfpc_prog_pp =
+  let open Lambda in
+  let open Icfpc in
+  let simplify_fv m =
+    let gen = gen_gen_fv 1 in
+    let tbl = Hashtbl.create 100 in
+    let f i =
+      match Hashtbl.find_opt tbl i with
+      | None -> 
+          let ti = gen () in
+          Hashtbl.add tbl i ti;
+          ti
+      | Some ti -> ti
+    in
+    Lambda.map (fun v -> match v with
+      | `Fv i -> f i
+      | _ -> v
+    ) m
+  in
+  let rec aux fmt (m:Icfpc.t Lambda.lambda) = 
+    match m with
+    | Var v -> Format.fprintf fmt "%a" icfpc_pp v
+    | Abs(`Fv i,m) -> Format.fprintf fmt "L%s %a" (int2s i) aux m
+    | Abs(v,_m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
+    | App(App(App(Var(`Top "IF"),m),n),o) -> Format.fprintf fmt "? %a %a %a" aux m aux n aux o
+    | App(App(Var(`Bop "$"),m),n) -> Format.fprintf fmt "%a %a" aux m aux n
+    | App(App(Var(`Bop op),m),n) -> Format.fprintf fmt "B%s %a %a" op aux m aux n
+    | App(Var(`Uop op),m) -> Format.fprintf fmt "U%s %a" op aux m
+    | App(m,n) -> Format.fprintf fmt "B$ %a %a" aux m aux n
+  in
+    fun fmt m ->
+      let m = simplify_fv m in
+      aux fmt m
 
 module DeBruijn = struct
   type t = { size : int; v : v }

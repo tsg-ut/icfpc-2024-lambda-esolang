@@ -38,10 +38,12 @@ rule token = parse
 | "?" { IF }
 | "L"(base94*) {
 		let s = tail lexbuf in
+		let s = s2int s in
 		LABS(s)
 	}
 | "v"(base94*) {
 		let s = tail lexbuf in
+		let s = s2int s in
 		LVAR(s)
 	}
 

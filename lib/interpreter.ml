@@ -88,7 +88,7 @@ let reduce_lambda m =
 
 let reduce_lambda_icfpc_greedy =
   let pp = Lambda.pp Icfpc.pp in
-  let rec aux m =
+  let rec aux (m:Icfpc.t Lambda.lambda) =
     let _mm = m in
     match m with
     | Var _ -> m
