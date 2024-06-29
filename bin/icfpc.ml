@@ -19,7 +19,8 @@ let _ =
   let lexbuf = Lexing.from_channel stdin in
   let res = parse lexbuf in
 
-  Logs.info (fun a -> a "Inputted: %a" Syntax.(Lambda.pp Icfpc.pp) res);
+  (* Logs.info (fun a -> a "Inputted: %a" Syntax.(Lambda.pp Icfpc.pp) res); *)
+  Logs.info (fun a -> a "Inputted: %a" Syntax.icfpc_read_pp res);
 
   (* let res = Syntax.Icfpc.resolve_var_to_fv res in *)
   let res = Interpreter.reduce_lambda_icfpc res in

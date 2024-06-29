@@ -793,6 +793,61 @@ let icfpc_prog_pp =
       let m = simplify_fv m in
       aux fmt m
 
+
+          (* 
+          | App (m, n) ->
+              let ms : 'a lambda list =
+                let rec aux d =
+                  match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
+                in
+                List.rev (n :: aux m)
+              in
+              if par then Format.fprintf fmt "(";
+              Format.pp_print_list
+                ~pp_sep:(fun fmt () -> Format.pp_print_string fmt " ")
+                (aux ~par:true) fmt ms;
+              if par then Format.fprintf fmt ")"
+        in
+        aux ~par:true *)
+let icfpc_read_pp =
+  let open Lambda in
+  let open Icfpc in
+  let rec aux ~par fmt (m:Icfpc.t Lambda.lambda) = 
+    match m with
+    | Var (`Fv i) -> Format.fprintf fmt "v%d" i
+    | Var v -> Format.fprintf fmt "%a" Icfpc.pp v
+    | Abs(`Fv i,m) ->
+        (if par then Format.fprintf fmt "(v%d. %a)"
+        else Format.fprintf fmt "v%d. %a") i (aux ~par:false) m
+    | Abs(v,_m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
+    | App(App(App(Var(`Top "IF"),m),n),o) ->
+        let aux m = aux ~par:false m in
+        Format.fprintf fmt "if(%a){ %a }{ %a }" aux m aux n aux o
+    | App(App(Var(`Bop "$"),m),n) -> aux ~par fmt (App(m,n)) 
+    | App(App(Var(`Bop op),m),n) ->
+        let aux m = aux ~par:true m in
+        (if par then Format.fprintf fmt "(%a %s %a)"
+        else Format.fprintf fmt "%a %s %a")  aux m op aux n
+    | App(Var(`Uop op),m) ->
+        let aux m = aux ~par:true m in
+        (if par then Format.fprintf fmt "(%s %a)"
+        else Format.fprintf fmt "%s %a") op aux m
+    | App(m,n) ->
+        let ms : 'a lambda list =
+          let rec aux d =
+            match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
+          in
+          List.rev (n :: aux m)
+        in
+        if par then Format.fprintf fmt "(";
+        Format.pp_print_list
+          ~pp_sep:(fun fmt () -> Format.pp_print_string fmt " ")
+          (aux ~par:true) fmt ms;
+        if par then Format.fprintf fmt ")"
+  in
+    fun fmt m ->
+      aux ~par:true fmt m
+
 module DeBruijn = struct
   type t = { size : int; v : v }
   and v = Var of int | Abs of t | App of t * t
