@@ -76,7 +76,13 @@ sendToUniverseEl.addEventListener('click', async () => {
 
   resultEl.value = response.result;
 
-  decodedEl.value = decode(response.result);
+  let decodedResponse = '';
+  if (inputEl.value.match(/^get efficiency\d+$/)) {
+    decodedResponse = 'Skipped decoding';
+  } else {
+    decodedResponse = decode(response.result);
+  }
+  decodedEl.value = decodedResponse;
 
   sendToUniverseEl.disabled = false;
 });

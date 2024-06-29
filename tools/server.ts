@@ -135,9 +135,16 @@ server.post('/send', async (request, reply) => {
 
   const text = await response.text();
 
+  server.log.info(`Response: ${text}`);
+
   try {
     const decodedPayload = decode(message);
-    const decodedResponse = decode(text);
+    let decodedResponse: string = '';
+    if (decodedPayload.match(/^get efficiency\d+$/)) {
+      decodedResponse = 'Skipped decoding';
+    } else {
+      decodedResponse = decode(text);
+    }
     logResult({
       payload: message,
       response: text,

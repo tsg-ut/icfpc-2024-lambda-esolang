@@ -227,13 +227,26 @@ class Simulator {
   board: Board;
   t: number;
   tick: number;
-  inputA: Cell;
-  inputB: Cell;
+  inputA: number | null;
+  inputB: number | null;
   history: HistoricalState[];
   submitValue: number | null = null;
 
-  constructor(board: string, inputA: Cell, inputB: Cell) {
-    this.board = this.parseBoard(board);
+  constructor(board: string, inputA: number | null, inputB: number | null) {
+    const parsedBoard = this.parseBoard(board);
+    const height = parsedBoard.length;
+    const width = Math.max(...parsedBoard.map(row => row.length));
+    const extendedBoard = Array(height + 2).fill(null).map(() => Array(width + 2).fill(null));
+
+    for (const y of Array(height).keys()) {
+      for (const x of Array(width).keys()) {
+        if (parsedBoard[y]?.[x] !== undefined) {
+          extendedBoard[y + 1][x + 1] = parsedBoard[y][x];
+        }
+      }
+    }
+
+    this.board = extendedBoard;
     this.t = 1;
     this.tick = 1;
     this.inputA = inputA;
@@ -244,10 +257,10 @@ class Simulator {
 
   private parseBoard(board: string): Board {
     return board.trim().split('\n').map(row =>
-      row.split(/\s+/).map(cell => {
+      row.trim().split(/\s+/).map(cell => {
         if (cell === '.') return null;
-        const intVal = parseInt(cell, 10);
-        return isNaN(intVal) ? cell : intVal;
+        const intVal = parseInt(cell);
+        return Number.isNaN(intVal) ? cell : intVal;
       })
     );
   }
@@ -490,7 +503,7 @@ class Simulator {
       case 'S':
         return null
       default:
-        throw new Error(`Unknown operator: ${op}`);
+        throw new Error(`Unknown operator at (${x}, ${y}): ${op}`);
     }
   }
 
@@ -606,20 +619,73 @@ class Simulator {
   }
 }
 
-// Example usage:
-const program = `
-. . . . 0 . . . .
-. B > . = . . . .
-. v 1 . . > . . .
-. . - . . . + S .
-. . . . . ^ . . .
-. . v . . 0 > . .
-. . . . . . A + .
-. 1 @ 6 . . < . .
-. . 3 . 0 @ 3 . .
-. . . . . 3 . . .
-`;
-const simulator = new Simulator(program, 10, 3);
-const result = simulator.run();
+/*
+{
+  // Example usage:
+  const program = `
+  . . . . 0 . . . .
+  . B > . = . . . .
+  . v 1 . . > . . .
+  . . - . . . + S .
+  . . . . . ^ . . .
+  . . v . . 0 > . .
+  . . . . . . A + .
+  . 1 @ 6 . . < . .
+  . . 3 . 0 @ 3 . .
+  . . . . . 3 . . .
+  `;
+  const simulator = new Simulator(program, 10, 3);
+  const result = simulator.run();
 
-console.log(`Result: ${result}`);
+  console.log(`Result: ${result}`);
+}
+
+{
+  const program = `
+  . . . . . . 1 . . . . . . .
+  . A > . > . # . . 1 . . . .
+  . . . v . . . > . - . > . .
+  . . . . . 1 * . . . . 11 @ 2
+  . . 1 = . * . > . > . . 6 .
+  . . . . . S . . . 5 @ 2 . .
+  . . . . . . . . . . 6 . . .
+  `;
+  const simulator = new Simulator(program, 5, null);
+  const result = simulator.run();
+
+  console.log(`Result: ${result}`);
+}
+
+{
+  const program = `
+  . . A . 1 . 2 . A .
+  . 2 * . + . % . * S
+  `;
+  const simulator = new Simulator(program, -123456, null);
+  const result = simulator.run();
+
+  console.log(`Result: ${result}`);
+}
+
+{
+  const program = `
+  . > . > . > . > .
+  ^ . . . . . . . v
+  . < . . . . S < .
+  . . ^ . . B
+  . < 1 > . %
+  v A v . < .
+  . % . + . .
+  . . v . v 0
+  . . . . . #
+  . 1 + . . .
+  . . . . 7 +
+  . 0 @ . < .
+  . . 8 . . .
+  `;
+  const simulator = new Simulator(program, 3, 7);
+  const result = simulator.run();
+
+  console.log(`Result: ${result}`);
+}
+*/
