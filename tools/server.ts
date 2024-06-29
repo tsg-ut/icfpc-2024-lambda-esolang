@@ -151,7 +151,7 @@ server.post('/send', async (request, reply) => {
   return { result: text };
 });
 
-server.listen({ port: 8080 }, (err, address) => {
+server.listen({ port: 36728 }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
