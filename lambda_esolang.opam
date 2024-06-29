@@ -7,4 +7,5 @@ depends: [
 	"logs"
 	"vec"
 	"mtime"
+	"zarith"
 ]

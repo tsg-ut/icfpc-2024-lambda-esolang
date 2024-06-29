@@ -1,6 +1,5 @@
 {
-	open Parsericfpc
-	open Syntax.Icfpc
+	open ParsericfpcHand
 
 	let tail lexbuf = 
 		let s = Lexing.lexeme lexbuf in
@@ -10,20 +9,23 @@
 
 let base94 = ['!'-'~']
 let white = [' ' '\t' '\n']
+let alpha = ['a'-'z']
+let num = ['0'-'9']
+let ident = alpha(alpha|num)*
 
 rule token = parse
 | white { token lexbuf }
+| "/*" { comment lexbuf; token lexbuf }
 | eof { EOF }
 | "T" { TRUE }
 | "F" { FALSE }
-| "I"(base94*) { 
-		let s = tail lexbuf in
-		let s = s2z s in
-		INT s
+| num+ {
+		let s = Lexing.lexeme lexbuf in
+		INT (Z.of_string s)
 	}
-| 'S'(base94*) {
+| '"'(alpha|num)*'"' {
 		let s = tail lexbuf in
-		let s = s2read s in
+		let s = String.sub s 0 (String.length s - 1) in
 		STR s
 	}
 | "U"(base94*) { 
@@ -36,15 +38,11 @@ rule token = parse
 		BOP s
 	}
 | "?" { IF }
-| "L"(base94*) {
-		let s = tail lexbuf in
-		LABS(s)
-	}
-| "v"(base94*) {
-		let s = tail lexbuf in
-		LVAR(s)
-	}
+| "." { DOT }
+| ident { IDENT (Lexing.lexeme lexbuf) }
 
 and comment = parse
+| "*/" { () }
+| "/*" { comment lexbuf; comment lexbuf }
 | eof { failwith "Unexpected eof" }
 | _ { comment lexbuf }

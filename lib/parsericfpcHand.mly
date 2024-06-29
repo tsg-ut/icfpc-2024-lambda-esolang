@@ -3,9 +3,9 @@
 
 %}
 
-%token <string> STR LABS LVAR UOP BOP
+%token <string> STR LABS LVAR UOP BOP IDENT
 %token <Z.t> INT
-%token TRUE FALSE EOF BAPP IF
+%token TRUE FALSE EOF BAPP IF DOT
 
 
 %start main

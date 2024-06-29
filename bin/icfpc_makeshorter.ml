@@ -1,9 +1,11 @@
 open Lambda_esolang
 
-let parse lexbuf = Parsericfpc.main Lexericfpc.token lexbuf
+let parse lexbuf = ParsericfpcHand.main LexericfpcHand.token lexbuf
 
 module Args = struct
+  let for_golf = ref false
   let speclist = [
+    ("-g", Arg.Set for_golf, "Golfer");
   ]
 end
 
@@ -22,6 +24,7 @@ let _ =
   Logs.info (fun a -> a "Inputted: %a" Syntax.(Lambda.pp Icfpc.pp) res);
 
   let res = Syntax.Icfpc.resolve_var_to_fv res in
+
   let res = Interpreter.reduce_lambda_icfpc res in
 
   match res with

@@ -107,19 +107,22 @@ let reduce_lambda_icfpc_greedy =
         let m = aux m in
         let n = aux n in
         match (op, m, n) with
-        | "+", Var (`Int m), Var (`Int n) -> Var (`Int (m + n))
-        | "-", Var (`Int m), Var (`Int n) -> Var (`Int (m - n))
-        | "*", Var (`Int m), Var (`Int n) -> Var (`Int (m * n))
-        | "/", Var (`Int m), Var (`Int n) -> Var (`Int (m / n))
-        | "%", Var (`Int m), Var (`Int n) -> Var (`Int (m mod n))
-        | "<", Var (`Int m), Var (`Int n) -> Var (`Bool (m < n))
-        | ">", Var (`Int m), Var (`Int n) -> Var (`Bool (m > n))
+        | "+", Var (`Int m), Var (`Int n) -> Var (`Int (Z.add m n))
+        | "-", Var (`Int m), Var (`Int n) -> Var (`Int (Z.sub m n))
+        | "*", Var (`Int m), Var (`Int n) -> Var (`Int (Z.mul m n))
+        | "/", Var (`Int m), Var (`Int n) -> Var (`Int (Z.div m n))
+        | "%", Var (`Int m), Var (`Int n) -> Var (`Int (Z.(m mod n)))
+        | "<", Var (`Int m), Var (`Int n) -> Var (`Bool (Z.lt m n))
+        | ">", Var (`Int m), Var (`Int n) -> Var (`Bool (Z.gt m n))
         | "&", Var (`Bool m), Var (`Bool n) -> Var (`Bool (m && n))
         | "|", Var (`Bool m), Var (`Bool n) -> Var (`Bool (m || n))
         | "=", Var m, Var n -> Var (`Bool (m = n))
         | ".", Var (`Str m), Var (`Str n) -> Var (`Str (m ^ n))
-        | "T", Var (`Int m), Var (`Str n) -> Var (`Str (String.sub n 0 m))
+        | "T", Var (`Int m), Var (`Str n) ->
+            let m = Z.to_int m in
+            Var (`Str (String.sub n 0 m))
         | "D", Var (`Int m), Var (`Str n) ->
+            let m = Z.to_int m in
             Var (`Str (String.sub n m (String.length n - m)))
         | _ ->
             failwith
@@ -128,13 +131,13 @@ let reduce_lambda_icfpc_greedy =
     | App (Var (`Uop op), m) -> (
         let m = aux m in
         match (op, m) with
-        | "-", Var (`Int m) -> Var (`Int (-m))
+        | "-", Var (`Int m) -> Var (`Int (Z.neg m))
         | "!", Var (`Bool m) -> Var (`Bool (not m))
-        | "#", Var (`Str m) -> Var (`Int Icfpc.(read2s m |> s2int))
+        | "#", Var (`Str m) -> Var (`Int Icfpc.(read2s m |> s2z))
         | "$", Var (`Int m) ->
             (* let ts = Icfpc.int2s m in
                Format.eprintf "int2s %d -> %s@." m ts; *)
-            Var (`Str Icfpc.(int2s m |> s2read))
+            Var (`Str Icfpc.(z2s m |> s2read))
         | _ ->
             failwith
               (Format.asprintf "Unknown unnary op: %s: with value (%a)" op pp m)

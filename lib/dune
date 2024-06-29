@@ -1,10 +1,10 @@
 (library
  (name lambda_esolang)
  (public_name lambda_esolang)
- (flags -w @a-70-21-4 -linkall)
+ (flags -w @a-70-21-4-44 -linkall)
  ; in order to load library.ml
- (libraries str logs vec))
+ (libraries str logs vec zarith))
 
-(ocamllex lexer lexerLazyK lexericfpc)
+(ocamllex lexer lexerLazyK lexericfpc lexericfpcHand)
 
-(ocamlyacc parser parserLazyK parsericfpc)
+(ocamlyacc parser parserLazyK parsericfpc parsericfpcHand)

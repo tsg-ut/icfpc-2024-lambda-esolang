@@ -12,3 +12,8 @@
  (name icfpc)
  (modules icfpc)
  (libraries str lambda_esolang))
+
+(executable
+ (name icfpc_makeshorter)
+ (modules icfpc_makeshorter)
+ (libraries str lambda_esolang))

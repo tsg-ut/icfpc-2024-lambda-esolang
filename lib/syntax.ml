@@ -675,7 +675,7 @@ end
 module Icfpc = struct
   type t =
     [ `Fv of int
-    | `Int of int
+    | `Int of Z.t
     | `Bool of bool
     | `Str of string
     | `Var of string
@@ -687,24 +687,45 @@ module Icfpc = struct
     match v with
     | `Bool b -> Format.fprintf fmt "%b" b
     | `Fv i -> Format.fprintf fmt "v%d" i
-    | `Int i -> Format.fprintf fmt "%d" i
+    | `Int i -> Format.fprintf fmt "%a" Z.pp_print i
     | `Str s -> Format.fprintf fmt "\"%s\"" s
     | `Var s -> Format.fprintf fmt "V(%s)" s
     | `Uop s -> Format.fprintf fmt "U(%s)" s
     | `Bop s -> Format.fprintf fmt "B(%s)" s
     | `Top s -> Format.fprintf fmt "T(%s)" s
 
+
+
   let s2int s =
     String.fold_left (fun i c -> (i * 94) + (Char.code c - Char.code '!')) 0 s
+  
+    let int2s =
+      let rec aux i =
+        if i = 0 then ""
+        else
+          aux (i / 94) ^ String.make 1 (Char.chr @@ ((i mod 94) + Char.code '!'))
+      in
+      aux
 
-  let int2s =
-    let rec aux i =
-      if i = 0 then ""
-      else
-        aux (i / 94) ^ String.make 1 (Char.chr @@ ((i mod 94) + Char.code '!'))
-    in
-    aux
+    let zcode c = Z.of_int @@ Char.code c
+    let chrz z = Char.chr @@ Z.to_int z
+    let z94 = Z.of_int 94
 
+  let s2z s : Z.t =
+
+    let open Z in
+    String.fold_left (fun i c -> (i * z94) + (zcode c - zcode '!')) Z.zero s
+
+
+    let z2s =
+      let rec aux (i:Z.t) =
+        let open Z in
+        if i = Z.zero then ""
+        else
+          aux (i / z94) ^ String.make 1 (chrz @@ ((i mod z94) + zcode '!'))
+      in
+      aux
+  
   let read2s =
     let table =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`|~ \n"
