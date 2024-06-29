@@ -14,12 +14,14 @@
   <ul>
     <li><strong>Communication Tool</strong></li>
     <li><a href="/base94.html">Base94 Tool</a></li>
+    <li><a href="/testcases.html">Testcases</a></li>
+    <li><a href="/runlength.html">Run-Length Encoding Tool</a></li>
   </ul>
   <h2>Communication Tool</h2>
   <form>
-    <h3>Input</h3>
+    <h3>Input (<span id="input-size">0</span>B)</h3>
     <textarea name="input" id="input" width="100%" rows="3"></textarea>
-    <h3>Encoded</h3>
+    <h3>Encoded (<span id="encoded-size">0</span>B)</h3>
     <textarea name="encoded" id="encoded" width="100%" rows="3"></textarea>
     <button type="button" id="send-to-universe">Send to Universe</button>
     <h3>Result</h3>
@@ -50,7 +52,7 @@
               <summary>Details</summary>
               <% if (log.decodedPayload) { %>
                 <h4>
-                  Decoded Payload
+                  Decoded Payload (<%= log.decodedPayload.length %>B)
                   <input id="decoded-payload-<%= ts %>" type="hidden" value="<%= log.decodedPayload %>" />
                   <button class="copy-to-clipboard" data-copy-to-clipboard-target="decoded-payload-<%= ts %>">Copy</button>
                 </h4>
@@ -58,7 +60,7 @@
               <% } %>
               <% if (log.payload) { %>
                 <h4>
-                  Payload
+                  Payload (<%= log.payload.length %>B)
                   <input id="payload-<%= ts %>" type="hidden" value="<%= log.payload %>" />
                   <button class="copy-to-clipboard" data-copy-to-clipboard-target="payload-<%= ts %>">Copy</button>
                 </h4>

@@ -1,7 +1,9 @@
 import {evaluate} from './interpreter.js';
 
 const inputEl = document.getElementById('input');
+const inputSizeEl = document.getElementById('input-size');
 const encodedEl = document.getElementById('encoded');
+const encodedSizeEl = document.getElementById('encoded-size');
 const sendToUniverseEl = document.getElementById('send-to-universe');
 const resultEl = document.getElementById('result');
 const decodedEl = document.getElementById('decoded');
@@ -33,12 +35,16 @@ const decode = (input) => {
 
 inputEl.addEventListener('input', () => {
   const input = inputEl.value;
+  inputSizeEl.textContent = input.length;
   encodedEl.value = encode(input);
+  encodedSizeEl.textContent = encodedEl.value.length;
 });
 
 encodedEl.addEventListener('input', () => {
   const input = encodedEl.value;
+  encodedSizeEl.textContent = input.length;
   inputEl.value = decode(input);
+  inputSizeEl.textContent = inputEl.value.length;
 });
 
 resultEl.addEventListener('input', () => {

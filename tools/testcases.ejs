@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TSG ICFPC waiwai tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js" defer></script>
+  <script src="app.mjs" type="module" defer></script>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <h1>TSG ICFPC waiwai tool</h1>
+  <ul>
+    <li><a href="/">Communication Tool</a></li>
+    <li><a href="/base94.html">Base94 Tool</a></li>
+    <li><strong>Testcases</strong></li>
+    <li><a href="/runlength.html">Run-Length Encoding Tool</a></li>
+  </ul>
+  <% if (caseName === null) { %>
+    <h2>Testcases</h2>
+    <ul>
+      <% testcases.forEach(testcase => { %>
+        <li><a href="?case=<%= testcase %>"><%= testcase %></a></li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <h2>Testcase: <%= caseName %></h2>
+    <details>
+      <summary>Content</summary>
+      <pre><%= content %></pre>
+    </details>
+    <h3>AC History</h3>
+    <div>
+      <% logs.forEach((log) => { %>
+        <% const ts = new Date(log.timestamp).getTime().toString() %>
+        <details>
+          <summary><%= log.payload.length %>B (<%= log.timestamp %>)</summary>
+          <% if (log.decodedPayload) { %>
+            <h4>
+              Decoded Payload (<%= log.decodedPayload.length %>B)
+              <input id="decoded-payload-<%= ts %>" type="hidden" value="<%= log.decodedPayload %>" />
+              <button class="copy-to-clipboard" data-copy-to-clipboard-target="decoded-payload-<%= ts %>">Copy</button>
+            </h4>
+            <pre><%= log.decodedPayload %></pre>
+          <% } %>
+          <% if (log.payload) { %>
+            <h4>
+              Payload (<%= log.payload.length %>B)
+              <input id="payload-<%= ts %>" type="hidden" value="<%= log.payload %>" />
+              <button class="copy-to-clipboard" data-copy-to-clipboard-target="payload-<%= ts %>">Copy</button>
+            </h4>
+            <pre><%= log.payload %></pre>
+          <% } %>
+          <% if (log.response) { %>
+            <h4>
+              Response
+              <input id="response-<%= ts %>" type="hidden" value="<%= log.response %>" />
+              <button class="copy-to-clipboard" data-copy-to-clipboard-target="response-<%= ts %>">Copy</button>
+            </h4>
+            <pre><%= log.response %></pre>
+          <% } %>
+          <% if (log.decodedResponse) { %>
+            <h4>
+              Decoded Response
+              <input id="decoded-response-<%= ts %>" type="hidden" value="<%= log.decodedResponse %>" />
+              <button class="copy-to-clipboard" data-copy-to-clipboard-target="decoded-response-<%= ts %>">Copy</button>
+            </h4>
+            <pre><%= log.decodedResponse %></pre>
+          <% } %>
+        </details>
+      <% }) %>
+    </div>
+  <% } %>
+</body>
+</html>

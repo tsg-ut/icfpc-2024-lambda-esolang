@@ -7,6 +7,8 @@ import {Mutex} from 'async-mutex';
 import fastifyView from '@fastify/view';
 import ejs from 'ejs';
 import {evaluate} from './interpreter.ts';
+import fs from 'fs/promises';
+import path from 'path';
 
 import 'dotenv/config';
 
@@ -17,6 +19,17 @@ const mutex = new Mutex();
 storage.init();
 
 const baseUrl = 'https://boundvariable.space/communicate';
+
+const testcaseConfig: [string, number][] = [
+  ['lambdaman', 21],
+  ['spaceship', 25],
+];
+
+const testcases = testcaseConfig.flatMap(([name, length]) => (
+  Array.from({ length }, (_, i) => ( 
+    `${name}${i + 1}`
+  ))
+));
 
 const logResult = async (
   {
@@ -84,6 +97,27 @@ server.get('/', async (request, reply) => {
   const logs = await storage.getItem('logs') || [];
   logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   return reply.view('index.ejs', { logs });
+});
+
+server.get('/testcases.html', async (request, reply) => {
+  if (typeof (request.query as any).case === 'string') {
+    const caseName = (request.query as any).case;
+    const index = testcases.indexOf(caseName);
+    if (index === -1) {
+      reply.code(404);
+      return 'Not found';
+    }
+    const logs = await storage.getItem('logs') || [];
+    const filteredLogs = logs.filter(({decodedResponse}) => (
+      decodedResponse?.includes(`solved ${caseName}`)
+    ));
+
+    const content = await fs.readFile(path.join(__dirname, '..', 'testcases', caseName), 'utf-8');
+
+    return reply.view('testcases.ejs', { logs: filteredLogs, caseName, testcases, content });
+  } else {
+    return reply.view('testcases.ejs', { logs: [], caseName: null, testcases });
+  }
 });
 
 server.post('/send', async (request, reply) => {
