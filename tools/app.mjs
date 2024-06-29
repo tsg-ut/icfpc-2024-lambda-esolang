@@ -1,3 +1,5 @@
+import {evaluate} from './interpreter.js';
+
 const inputEl = document.getElementById('input');
 const encodedEl = document.getElementById('encoded');
 const sendToUniverseEl = document.getElementById('send-to-universe');
@@ -15,7 +17,12 @@ const encode = (input) => {
 
 const decode = (input) => {
   if (!input.startsWith('S')) {
-    return 'Invalid input';
+    try {
+      const result = evaluate(input);
+      return result.toString();
+    } catch (e) {
+      return e.message;
+    }
   }
 
   return Array.from(input.slice(1)).map((char) => {

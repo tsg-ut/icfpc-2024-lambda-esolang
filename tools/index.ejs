@@ -6,11 +6,15 @@
   <title>TSG ICFPC waiwai tool</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.mjs" type="module" defer></script>
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <h1>TSG ICFPC waiwai tool</h1>
+  <ul>
+    <li><strong>Communication Tool</strong></li>
+    <li><a href="/base94.html">Base94 Tool</a></li>
+  </ul>
   <h2>Communication Tool</h2>
   <form>
     <h3>Input</h3>
@@ -33,7 +37,7 @@
       </tr>
     </thead>
     <tbody>
-      <% logs.forEach(log => { %>
+      <% logs.slice(0, 20).forEach(log => { %>
         <% const ts = new Date(log.timestamp).getTime().toString() %>
         <tr>
           <td><%= log.decodedPayload ?? log.payload %></td>

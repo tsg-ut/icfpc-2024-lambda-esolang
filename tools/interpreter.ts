@@ -1,14 +1,20 @@
 // Run: npx tsx ./interpreter.ts
 
-import { inspect } from "util";
-import assert from 'assert';
-import util from 'util'; 
+// import { inspect } from "util";
+// import assert from 'assert';
+
+const assert: (condition: boolean, message?: string) => asserts condition = (condition: boolean, message?: string): asserts condition => {
+  if (!condition) {
+    throw new Error(message);
+  }
+};
 
 type Token = BooleanToken | IntegerToken | StringToken | UnaryToken | BinaryToken | IfToken | LambdaToken | VariableToken;
+type Value = boolean | bigint | string | ((arg: Token, env: Environment) => Value);
 type Environment = Map<number, [Environment, Token]>;
 
 interface BooleanToken { type: 'boolean'; value: boolean; }
-interface IntegerToken { type: 'integer'; value: number; }
+interface IntegerToken { type: 'integer'; value: bigint; }
 interface StringToken { type: 'string'; value: string; }
 interface UnaryToken { type: 'unary'; operator: string; operand: Token; }
 interface BinaryToken { type: 'binary'; operator: string; left: Token; right: Token; }
@@ -38,9 +44,9 @@ function parse(tokens: string[]): Token {
     case '?':
       return { type: 'if', condition: parse(tokens), thenBranch: parse(tokens), elseBranch: parse(tokens) };
     case 'L':
-      return { type: 'lambda', variable: parseBase94(body), body: parse(tokens) };
+      return { type: 'lambda', variable: Number(parseBase94(body)), body: parse(tokens) };
     case 'v':
-      return { type: 'variable', variable: parseBase94(body) };
+      return { type: 'variable', variable: Number(parseBase94(body)) };
     default:
       throw new Error(`Unknown token indicator: ${indicator}`);
   }
@@ -71,7 +77,7 @@ function inspectToken(token: Token): string {
 
 let evacn = 0;
 
-function evaluate(token: Token, env: Environment = new Map()): any {
+function evaluateToken(token: Token, env: Environment = new Map()): Value {
   if(evacn > 100){
     process.exit(1);
   }
@@ -85,49 +91,85 @@ function evaluate(token: Token, env: Environment = new Map()): any {
     case 'string':
       return token.value;
     case 'unary':
-      const operand = evaluate(token.operand, env);
+      const operand = evaluateToken(token.operand, env);
       switch (token.operator) {
-        case '-': return -operand;
+        case '-': {
+          assert(typeof operand === 'bigint', `Expected bigint operand for -, got ${typeof operand}`);
+          return -operand;
+        }
         case '!': return !operand;
-        case '#': return parseBase94(operand);
-        case '$': return encodeBase94(operand);
+        case '#': {
+          assert(typeof operand === 'string', `Expected string operand for #, got ${typeof operand}`);
+          return parseBase94(operand);
+        }
+        case '$': {
+          assert(typeof operand === 'bigint', `Expected bigint operand for $, got ${typeof operand}`);
+          return encodeBase94(operand);
+        }
         default: throw new Error(`Unknown unary operator: ${token.operator}`);
       }
     case 'binary':
-      const left = evaluate(token.left, env);
+      const left = evaluateToken(token.left, env);
       if(token.operator === "$"){
-          console.log('apply', inspectToken(token.left), inspectToken(token.right), env);
-          const leftToken = evaluate(token.left, env);
-          console.log('leftToken', leftToken);
+          // console.log('apply', inspectToken(token.left), inspectToken(token.right), env);
+          const leftToken = evaluateToken(token.left, env);
+          assert(typeof leftToken === 'function', `Expected function left operand for $, got ${typeof leftToken}`);
+          // console.log('leftToken', leftToken);
           return leftToken(token.right, env);
       }
-      const right = evaluate(token.right, env);
+      const right = evaluateToken(token.right, env);
       switch (token.operator) {
-        case '+': return left + right;
-        case '-': return left - right;
-        case '*': return left * right;
-        case '/': return Math.trunc(left / right);
-        case '%': return left % right;
+        case '+': {
+          assert(typeof left === 'bigint' && typeof right === 'bigint', `Expected bigint operands for +, got ${typeof left} and ${typeof right}`);
+          return left + right;
+        }
+        case '-': {
+          assert(typeof left === 'bigint' && typeof right === 'bigint', `Expected bigint operands for -, got ${typeof left} and ${typeof right}`);
+          return left - right;
+        }
+        case '*': {
+          assert(typeof left === 'bigint' && typeof right === 'bigint', `Expected bigint operands for *, got ${typeof left} and ${typeof right}`);
+          return left * right;
+        }
+        case '/': {
+          assert(typeof left === 'bigint' && typeof right === 'bigint', `Expected bigint operands for /, got ${typeof left} and ${typeof right}`);
+          return left / right;
+        }
+        case '%': {
+          assert(typeof left === 'bigint' && typeof right === 'bigint', `Expected bigint operands for %, got ${typeof left} and ${typeof right}`);
+          return left % right;
+        }
         case '<': return left < right;
         case '>': return left > right;
         case '=': return left === right;
         case '|': return left || right;
         case '&': return left && right;
-        case '.': return left + right;
-        case 'T': return right.substring(0, left);
-        case 'D': return right.substring(left);
+        case '.': {
+          assert(typeof left === 'string' && typeof right === 'string', `Expected string operands for ., got ${typeof left} and ${typeof right}`);
+          return left + right;
+        }
+        case 'T': {
+          assert(typeof left === 'bigint', `Expected bigint left operand for T, got ${typeof left}`);
+          assert(typeof right === 'string', `Expected string right operand for T, got ${typeof right}`);
+          return right.substring(0, Number(left));
+        }
+        case 'D': {
+          assert(typeof left === 'bigint', `Expected bigint left operand for D, got ${typeof left}`);
+          assert(typeof right === 'string', `Expected string right operand for D, got ${typeof right}`);
+          return right.substring(Number(left));
+        }
 
         default: throw new Error(`Unknown binary operator: ${token.operator}`);
       }
     case 'if':
-      const condition = evaluate(token.condition, env);
-      return evaluate(condition ? token.thenBranch : token.elseBranch, env);
+      const condition = evaluateToken(token.condition, env);
+      return evaluateToken(condition ? token.thenBranch : token.elseBranch, env);
     case 'lambda':
       return (arg: Token, lambdaEnv: Environment) => {
-        console.log("evaluating lambda body",inspectToken(token));
+        // console.log("evaluating lambda body",inspectToken(token));
         const token2 = alphaconvert({...token});
         assert(token2.type === "lambda");
-        return evaluate(token2.body, new Map(env).set(token2.variable, [lambdaEnv, arg]));
+        return evaluateToken(token2.body, new Map(env).set(token2.variable, [lambdaEnv, arg]));
       };
     case 'variable':
       const tokenEnv = env.get(token.variable);
@@ -135,9 +177,9 @@ function evaluate(token: Token, env: Environment = new Map()): any {
         throw new Error(`Variable ${token.variable} not found in environment`);
       }
       const [lambdaEnv, arg] = tokenEnv;
-      return evaluate(arg, lambdaEnv);
+      return evaluateToken(arg, lambdaEnv);
     default:
-      console.log(token);
+      // console.log(token);
       throw new Error(`Unknown token type: ${(token as any).type}`);
   }
 }
@@ -187,8 +229,11 @@ function alphaconvert(lambda: Token): Token {
 }
 
 function substitute(lambda: Token, arg: Token): Token {
-  if (lambda.type === 'variable' && lambda.variable === arg.variable) {
-    return arg;
+  if (lambda.type === 'variable') {
+    assert(arg.type === 'variable');
+    if (lambda.variable === arg.variable) {
+      return arg;
+    }
   }
   switch (lambda.type) {
     case 'unary':
@@ -198,6 +243,7 @@ function substitute(lambda: Token, arg: Token): Token {
     case 'if':
       return { ...lambda, condition: substitute(lambda.condition, arg), thenBranch: substitute(lambda.thenBranch, arg), elseBranch: substitute(lambda.elseBranch, arg) };
     case 'lambda':
+      assert(arg.type === 'variable');
       if (lambda.variable === arg.variable) {
         return lambda;
       } else {
@@ -213,15 +259,15 @@ function substitute(lambda: Token, arg: Token): Token {
   }
 }
 
-function parseBase94(input: string): number {
-  return [...input].reduce((acc, char) => acc * 94 + (char.charCodeAt(0) - 33), 0);
+function parseBase94(input: string): bigint {
+  return [...input].reduce((acc, char) => acc * 94n + (BigInt(char.charCodeAt(0)) - 33n), 0n);
 }
 
-function encodeBase94(number: number): string {
+function encodeBase94(number: bigint): string {
   let result = '';
-  while (number > 0) {
-    result = String.fromCharCode((number % 94) + 33) + result;
-    number = Math.trunc(number / 94);
+  while (number > 0n) {
+    result = String.fromCharCode(Number(number % 94n) + 33) + result;
+    number = number / 94n;
   }
   return result || '!';
 }
@@ -231,13 +277,30 @@ function parseCustomString(input: string): string {
   return [...input].map(char => customOrder[char.charCodeAt(0) - 33]).join('');
 }
 
+function evaluate(input: string): any {
+  const tokens = input.split(/\s+/).filter((token) => token !== "");
+  const ast = parse(tokens);
+  return evaluateToken(ast);
+}
+
+export {
+  evaluate,
+  inspectToken,
+  parse,
+  evaluateToken,
+  alphaconvert,
+  substitute,
+  parseBase94,
+  encodeBase94,
+  parseCustomString,
+};
+
 // Example usage:
-const tokens = 'B$ L+ B. B. SF B$ B$ v+ Sl IR B$ B$ v+ B. S~ B$ B$ v+ Sl IS IR L" B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L$ L# ? B= v# I" v" B. v" B$ v$ B- v# I"'.split(" ");
+// const tokens = 'B$ L+ B. B. SF B$ B$ v+ Sl IR B$ B$ v+ B. S~ B$ B$ v+ Sl IS IR L" B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L$ L# ? B= v# I" v" B. v" B$ v$ B- v# I"'.split(" ");
 // const tokens = 'B$ B$ Lf B$ Lx B$ vf B$ vx vx Lx B$ vf B$ vx vx Lh Ln ? B= vn I! I" B* B$ vh B- vn I" vn I&'.split(" ");
 // const tokens = 'B$ Lf B$ Lx B$ vf B$ vx vx Lx B$ vf B$ vx vx Lh Ln ? B= vn I! I" B* B$ vh B- vn I" vn'.split(" ");
-const ast = parse(tokens);
-console.log(inspect(ast, false, null, true));
-console.log(evaluate(ast)); // Output: 5
+// const ast = parse(tokens);
+// console.log(evaluateToken(ast)); // Output: 5
 /*
 Y(f) = f(Y(f))
 f(h, n) = n == 0 ? 1 : h(n - 1) * n

@@ -1,3 +1,7 @@
+body {
+  max-width: 1500px;
+}
+
 table td {
   overflow: hidden;
   text-overflow: ellipsis;

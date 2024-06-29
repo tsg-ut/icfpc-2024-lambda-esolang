@@ -6,6 +6,7 @@ import storage from 'node-persist';
 import {Mutex} from 'async-mutex';
 import fastifyView from '@fastify/view';
 import ejs from 'ejs';
+import {evaluate} from './interpreter.ts';
 
 import 'dotenv/config';
 
@@ -45,11 +46,16 @@ const logResult = async (
 
 const decode = (input: string) => {
   if (!input.startsWith('S')) {
-    return 'Invalid input';
+    try {
+      const result = evaluate(input);
+      return result.toString();
+    } catch (e) {
+      return e.message;
+    }
   }
 
   return Array.from(input.slice(1)).map((char) => {
-    const index = char.codePointAt(0) - 33;
+    const index = char.codePointAt(0)! - 33;
     return permutation[index] || '✕';
   }).join('');
 };
