@@ -3,8 +3,7 @@ open Lambda_esolang
 let parse lexbuf = Parsericfpc.main Lexericfpc.token lexbuf
 
 module Args = struct
-  let speclist = [
-  ]
+  let speclist = []
 end
 
 let _ =

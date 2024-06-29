@@ -88,7 +88,7 @@ let reduce_lambda m =
 
 let reduce_lambda_icfpc_greedy =
   let pp = Lambda.pp Icfpc.pp in
-  let rec aux (m:Icfpc.t Lambda.lambda) =
+  let rec aux (m : Icfpc.t Lambda.lambda) =
     let _mm = m in
     match m with
     | Var _ -> m
@@ -111,7 +111,7 @@ let reduce_lambda_icfpc_greedy =
         | "-", Var (`Int m), Var (`Int n) -> Var (`Int (Z.sub m n))
         | "*", Var (`Int m), Var (`Int n) -> Var (`Int (Z.mul m n))
         | "/", Var (`Int m), Var (`Int n) -> Var (`Int (Z.div m n))
-        | "%", Var (`Int m), Var (`Int n) -> Var (`Int (Z.(m mod n)))
+        | "%", Var (`Int m), Var (`Int n) -> Var (`Int Z.(m mod n))
         | "<", Var (`Int m), Var (`Int n) -> Var (`Bool (Z.lt m n))
         | ">", Var (`Int m), Var (`Int n) -> Var (`Bool (Z.gt m n))
         | "&", Var (`Bool m), Var (`Bool n) -> Var (`Bool (m && n))
@@ -144,14 +144,12 @@ let reduce_lambda_icfpc_greedy =
         )
     | App (m, n) ->
         let tm = aux m in
-        if m <> tm then begin
-          aux @@ App (tm, n)
-        end else begin
+        if m <> tm then aux @@ App (tm, n)
+        else
           let tn = aux n in
           if n <> tn then aux @@ App (tm, tn) else _mm
-        end
-
   in
+
   fun m -> aux m
 
 let reduce_lambda_icfpc m =

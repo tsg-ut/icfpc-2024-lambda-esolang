@@ -694,34 +694,31 @@ module Icfpc = struct
 
   let s2int s =
     String.fold_left (fun i c -> (i * 94) + (Char.code c - Char.code '!')) 0 s
-  
-    let int2s =
-      let rec aux i =
-        if i = 0 then ""
-        else
-          aux (i / 94) ^ String.make 1 (Char.chr @@ ((i mod 94) + Char.code '!'))
-      in
-      aux
 
-    let zcode c = Z.of_int @@ Char.code c
-    let chrz z = Char.chr @@ Z.to_int z
-    let z94 = Z.of_int 94
+  let int2s =
+    let rec aux i =
+      if i = 0 then ""
+      else
+        aux (i / 94) ^ String.make 1 (Char.chr @@ ((i mod 94) + Char.code '!'))
+    in
+    aux
+
+  let zcode c = Z.of_int @@ Char.code c
+  let chrz z = Char.chr @@ Z.to_int z
+  let z94 = Z.of_int 94
 
   let s2z s : Z.t =
-
     let open Z in
     String.fold_left (fun i c -> (i * z94) + (zcode c - zcode '!')) Z.zero s
 
+  let z2s =
+    let rec aux (i : Z.t) =
+      let open Z in
+      if i = Z.zero then ""
+      else aux (i / z94) ^ String.make 1 (chrz @@ ((i mod z94) + zcode '!'))
+    in
+    aux
 
-    let z2s =
-      let rec aux (i:Z.t) =
-        let open Z in
-        if i = Z.zero then ""
-        else
-          aux (i / z94) ^ String.make 1 (chrz @@ ((i mod z94) + zcode '!'))
-      in
-      aux
-  
   let read2s =
     let table =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`|~ \n"
@@ -767,72 +764,73 @@ let icfpc_prog_pp =
     let tbl = Hashtbl.create 100 in
     let f i =
       match Hashtbl.find_opt tbl i with
-      | None -> 
+      | None ->
           let ti = gen () in
           Hashtbl.add tbl i ti;
           ti
       | Some ti -> ti
     in
-    Lambda.map (fun v -> match v with
-      | `Fv i -> f i
-      | _ -> v
-    ) m
+    Lambda.map (fun v -> match v with `Fv i -> f i | _ -> v) m
   in
-  let rec aux fmt (m:Icfpc.t Lambda.lambda) = 
+  let rec aux fmt (m : Icfpc.t Lambda.lambda) =
     match m with
     | Var v -> Format.fprintf fmt "%a" icfpc_pp v
-    | Abs(`Fv i,m) -> Format.fprintf fmt "L%s %a" (int2s i) aux m
-    | Abs(v,_m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
-    | App(App(App(Var(`Top "IF"),m),n),o) -> Format.fprintf fmt "? %a %a %a" aux m aux n aux o
-    | App(App(Var(`Bop "$"),m),n) -> Format.fprintf fmt "%a %a" aux m aux n
-    | App(App(Var(`Bop op),m),n) -> Format.fprintf fmt "B%s %a %a" op aux m aux n
-    | App(Var(`Uop op),m) -> Format.fprintf fmt "U%s %a" op aux m
-    | App(m,n) -> Format.fprintf fmt "B$ %a %a" aux m aux n
+    | Abs (`Fv i, m) -> Format.fprintf fmt "L%s %a" (int2s i) aux m
+    | Abs (v, _m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
+    | App (App (App (Var (`Top "IF"), m), n), o) ->
+        Format.fprintf fmt "? %a %a %a" aux m aux n aux o
+    | App (App (Var (`Bop "$"), m), n) -> Format.fprintf fmt "%a %a" aux m aux n
+    | App (App (Var (`Bop op), m), n) ->
+        Format.fprintf fmt "B%s %a %a" op aux m aux n
+    | App (Var (`Uop op), m) -> Format.fprintf fmt "U%s %a" op aux m
+    | App (m, n) -> Format.fprintf fmt "B$ %a %a" aux m aux n
   in
-    fun fmt m ->
-      let m = simplify_fv m in
-      aux fmt m
+  fun fmt m ->
+    let m = simplify_fv m in
+    aux fmt m
 
-
-          (* 
-          | App (m, n) ->
-              let ms : 'a lambda list =
-                let rec aux d =
-                  match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
-                in
-                List.rev (n :: aux m)
-              in
-              if par then Format.fprintf fmt "(";
-              Format.pp_print_list
-                ~pp_sep:(fun fmt () -> Format.pp_print_string fmt " ")
-                (aux ~par:true) fmt ms;
-              if par then Format.fprintf fmt ")"
-        in
-        aux ~par:true *)
+(*
+     | App (m, n) ->
+         let ms : 'a lambda list =
+           let rec aux d =
+             match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
+           in
+           List.rev (n :: aux m)
+         in
+         if par then Format.fprintf fmt "(";
+         Format.pp_print_list
+           ~pp_sep:(fun fmt () -> Format.pp_print_string fmt " ")
+           (aux ~par:true) fmt ms;
+         if par then Format.fprintf fmt ")"
+   in
+   aux ~par:true *)
 let icfpc_read_pp =
   let open Lambda in
   let open Icfpc in
-  let rec aux ~par fmt (m:Icfpc.t Lambda.lambda) = 
+  let rec aux ~par fmt (m : Icfpc.t Lambda.lambda) =
     match m with
     | Var (`Fv i) -> Format.fprintf fmt "v%d" i
     | Var v -> Format.fprintf fmt "%a" Icfpc.pp v
-    | Abs(`Fv i,m) ->
+    | Abs (`Fv i, m) ->
         (if par then Format.fprintf fmt "(v%d. %a)"
-        else Format.fprintf fmt "v%d. %a") i (aux ~par:false) m
-    | Abs(v,_m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
-    | App(App(App(Var(`Top "IF"),m),n),o) ->
+         else Format.fprintf fmt "v%d. %a")
+          i (aux ~par:false) m
+    | Abs (v, _m) -> failwith (Format.asprintf "Unknown Abs: %a" icfpc_pp v)
+    | App (App (App (Var (`Top "IF"), m), n), o) ->
         let aux m = aux ~par:false m in
         Format.fprintf fmt "if(%a){ %a }{ %a }" aux m aux n aux o
-    | App(App(Var(`Bop "$"),m),n) -> aux ~par fmt (App(m,n)) 
-    | App(App(Var(`Bop op),m),n) ->
+    | App (App (Var (`Bop "$"), m), n) -> aux ~par fmt (App (m, n))
+    | App (App (Var (`Bop op), m), n) ->
         let aux m = aux ~par:true m in
         (if par then Format.fprintf fmt "(%a %s %a)"
-        else Format.fprintf fmt "%a %s %a")  aux m op aux n
-    | App(Var(`Uop op),m) ->
+         else Format.fprintf fmt "%a %s %a")
+          aux m op aux n
+    | App (Var (`Uop op), m) ->
         let aux m = aux ~par:true m in
         (if par then Format.fprintf fmt "(%s %a)"
-        else Format.fprintf fmt "%s %a") op aux m
-    | App(m,n) ->
+         else Format.fprintf fmt "%s %a")
+          op aux m
+    | App (m, n) ->
         let ms : 'a lambda list =
           let rec aux d =
             match d with Var _ | Abs _ -> [ d ] | App (x, y) -> y :: aux x
@@ -845,8 +843,7 @@ let icfpc_read_pp =
           (aux ~par:true) fmt ms;
         if par then Format.fprintf fmt ")"
   in
-    fun fmt m ->
-      aux ~par:true fmt m
+  fun fmt m -> aux ~par:true fmt m
 
 module DeBruijn = struct
   type t = { size : int; v : v }

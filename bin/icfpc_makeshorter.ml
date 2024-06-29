@@ -4,9 +4,7 @@ let parse lexbuf = ParsericfpcHand.main LexericfpcHand.token lexbuf
 
 module Args = struct
   let for_golf = ref false
-  let speclist = [
-    ("-g", Arg.Set for_golf, "Golfer");
-  ]
+  let speclist = [ ("-g", Arg.Set for_golf, "Golfer") ]
 end
 
 let _ =
