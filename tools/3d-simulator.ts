@@ -567,30 +567,11 @@ class Simulator {
     }
   }
 
-
-  private scheduleWarpOperation(x: number, y: number, newBoard: Board, warpOps: WarpOperation[]): void {
-    const dx = this.getCell(x - 1, y);
-    const dy = this.getCell(x + 1, y);
-    const dt = this.getCell(x, y + 1);
-    const v = this.getCell(x, y - 1);
-    if (typeof dx === 'number' && typeof dy === 'number' && typeof dt === 'number') {
-      warpOps.push({ dx, dy, dt, v });
-    }
-  }
-
   private applyWarpOperation(op: Operation): void {
     const [dx, dy, dt, v] = op.inputs;
     const targetX = op.x - dx;
     const targetY = op.y - dy;
     this.setCell(targetX, targetY, v);
-  }
-
-  private submit(x: number, y: number, newBoard: Board): void {
-    const value = this.getCell(x - 1, y);
-    if (value !== null) {
-      console.log(`Submit: ${value}`);
-      process.exit(0);
-    }
   }
 
   run(maxTicks: number = 1_000_000): number {
