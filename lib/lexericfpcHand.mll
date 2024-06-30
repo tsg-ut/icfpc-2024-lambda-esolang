@@ -57,7 +57,7 @@ rule token = parse
 		INT (Z.of_string s)
 	}
 
-| '"'(alpha|num)*'"' {
+| '"'[^'"']*'"' {
 		let s = tail lexbuf in
 		let s = String.sub s 0 (String.length s - 1) in
 		STR s
