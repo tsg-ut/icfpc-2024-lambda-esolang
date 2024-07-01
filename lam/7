@@ -1,0 +1,13 @@
+
+(
+	(f. f f)
+	(h. x.
+		? (B= x 73) "solve lambdaman7 "
+		(B. ((h h) (B% (B* x 54) 45587)) (BT 1 (BD (B% x 4) "LURD")))
+	)
+) 47
+
+
+/*
+(47,54,45587 -> 29548 / RRURURRDRD(len 45585)(minb 73 / minbl 45540)) => 314/314
+*/

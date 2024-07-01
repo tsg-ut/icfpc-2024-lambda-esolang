@@ -1,0 +1,14 @@
+(
+	(f. f f)
+	(h. x.
+		? (B= x 4371728) "solve lambdaman18 "
+		(B. ((h h) (B% (B* x 52) 7879171))
+			(? (B> (B% x 8) 3)
+				(BT 1 (BD (B% x 4) "LURD"))
+				(BT 2 (BD (B* (B% x 4) 2) "LLUURRDD"))))
+	)
+) 36
+
+/*
+(36,52,7879171 -> 4371728 / LUULLLLLLL(len 999998)(minb 22 / minbl 942436)) => 9942/9942
+*/

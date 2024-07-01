@@ -1,0 +1,17 @@
+(
+	(f. f f)
+	(h. x.
+		? (B= x 6056) "solve lambdaman13 "
+		(B. ((h h) (B% (B* x 33) 18735014))
+			(BT 4 (BD (B% x 16) "LLUULLDDRRUURRDDLL")))
+	)
+) 72
+
+/*
+
+let ns,s = 4, String.sub "LLUULLDDRRUURRDDLL" ((x mod 8) * 2) 4 in
+
+Maze(72,33,18735014 -> 6029426 / UURRUURRUU(len 999996)(b 14 / bl 503748)(b2 6056 / l2 999900)(b3 199848 / bl3 999904)) => 4999/4999
+Maze(48,43,18463118 -> 59932 / UULLUULLUU(len 999996)(b -2 / bl -1)(b2 5676 / l2 995372)(b3 59932 / bl3 999996)) => 4999/4999
+
+*/

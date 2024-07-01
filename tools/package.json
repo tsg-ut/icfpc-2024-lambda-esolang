@@ -19,6 +19,7 @@
     "fastify": "^4.28.0",
     "node-persist": "^4.0.1",
     "pino-pretty": "^11.2.1",
+    "sharp": "^0.33.4",
     "tsx": "^4.15.8",
     "typescript": "^5.5.2"
   }

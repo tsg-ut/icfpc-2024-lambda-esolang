@@ -1,0 +1,14 @@
+
+(
+	(f. f f)
+	(h. x.
+		? (B= x 38) "solve lambdaman9 "
+		(B. ((h h) (B% (B* x 21) 54959)) (BT 1 (BD (B% x 4) "LURD")))
+	)
+) 64
+
+
+/*
+(64,21,54959 -> 26174 / DDDDDRRLLL(len 54957)(minb 38 / minbl 54425)) => 2500/2500
+
+*/

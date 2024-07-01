@@ -1,0 +1,16 @@
+(
+	(f. f f)
+	(h. x.
+		? (B= x 15422992) "solve lambdaman20 "
+		(B. ((h h) (B% (B* x 3) 15801692))
+			(BT 4 (BD (B% x 16) "LLUULLDDRRUURRDDLL")))
+	)
+) 64
+
+
+/*
+
+satos@benten:~/toys/icfpc-2024/lambda_esolang_icfpc$ time dune exec -- ./bin/icfpc_lambdaman.exe -i 20
+Maze2(64,3,15801692 -> 15422992 / UULLUULLUU(len 999996)(b -2 / bl -1)(b2 7660 / l2 993148)(b3 518180 / bl3 999828)) => 14636/14636
+
+*/
