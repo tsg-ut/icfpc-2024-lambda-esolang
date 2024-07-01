@@ -1,0 +1,16 @@
+(
+	(f. f f)
+	(h. x.
+		? (B= x 8808) "solve lambdaman14 "
+		(B. ((h h) (B% (B* x 18) 18284484))
+			(BT 4 (BD (B% x 16) "LLUULLDDRRUURRDDLL")))
+	)
+) 26
+
+/*
+
+let ns,s = 4, String.sub "LLUULLDDRRUURRDDLL" ((x mod 8) * 2) 4 in
+
+(13,18,9142242 -> 43122 / UULLDDUURR(len 999996)(minb 36 / minbl 955976)(minb2 4404 / minbl2 998584)(minb3 43122 / minbl3 999996)) => 4999/4999
+
+*/
