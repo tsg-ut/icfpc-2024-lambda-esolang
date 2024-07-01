@@ -1,4 +1,4 @@
 [submodule "visualizer-template-public"]
-	path = spaceship-visualizer
+	path = tools/spaceship-visualizer
 	url = git@github.com:sh-mug/visualizer-template-public.git
 	branch = icfpc
