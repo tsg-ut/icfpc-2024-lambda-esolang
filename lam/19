@@ -1,0 +1,66 @@
+(B. "solve lambdaman19 " ((
+	(f. f f)
+	(
+		(d. h. n. i. 
+			? (B= (B* n i) 0) ""
+      (B. (d i n)
+      (B. ((h h) (B/ n 2) 4)
+      (B. (d (B+ i 2) n)
+      ((h h) n (B- i 1)))))
+		)
+		(c.
+			(f. f f)
+			(h. n.
+				? (B= n 0) "" (B. ((h h) (B- n 1)) (BT 1 (BD c "LURDLUL")))
+			)
+		)
+	)
+) 64 4))
+
+/*
+(B. "solve lambdaman19 " ((
+	(f. f f)
+	(
+		(d. h. n. i. 
+			? (B= (B* n i) 0) ""
+      (B. (d i n)
+      (B. ((h h) (B/ n 2) 4)
+      (B. (d (B+ i 2) n)
+      ((h h) n (B- i 1)))))
+		)
+		(c.
+			(f. f f)
+			(h. n.
+				? (B= n 0) "" (B. ((h h) (B- n 1)) (BT 1 (BD (B% c 4) "LURD")))
+			)
+		)
+	)
+) 64 4))
+*/
+
+/*
+    let dup n d =
+      String.make n (String.get "LURD" (d mod 4))
+    in
+    let rec gen n =
+      if n = 0 then "" else
+      let rec aux i =
+        if i = 0 then "" else
+        (dup n i) ^
+        gen (n/2) ^
+        (dup n (i+2)) ^
+        aux (i-1)
+      in
+        aux 4
+    in
+      let res = gen 64 in
+
+    let rec gen n i =
+      if n = 0 then "" else
+      if i = 0 then "" else 
+      (dup n i) ^ 
+      (gen (n/2) 4) ^
+      (dup n (i+2)) ^
+      gen n (i-1)
+    in
+*/

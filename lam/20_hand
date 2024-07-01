@@ -1,0 +1,35 @@
+(B. "solve lambdaman20 " 
+	((d. g. 
+		(B. (g d 0 32)
+		(B. (d 2 1)
+		(B. (g d 1 32)
+		(B. (d 3 1)
+		(B. (g d 2 32)
+		(B. (d 0 1)
+		(B. (g d 3 32)
+		(B. (d 1 1))))))))))
+	
+		(
+			(f. f f)
+			(d. h. i. n. 
+				? (B= n 0) ""
+				(B. (d i n) 
+				(B. ((h h) i n) 
+				(B. (d i n) 
+				(B. (d i n) 
+				(B. (d i n) 
+				
+				  (B. (d i n)
+				  (B. ((h h) (B/ n 2) 4)
+				  (B. (d (B+ i 2) n)
+				  ((h h) n (B- i 1)))))
+				)
+		(c.
+			(f. f f)
+			(h. n.
+				? (B= n 0) "" (B. ((h h) (B- n 1)) (BT 1 (BD (B% c 4) "LURD")))
+			)
+		)
+	)
+) 64 4))
+

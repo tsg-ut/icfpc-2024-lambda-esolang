@@ -1,3 +1,5 @@
+The OCaml part of the code is based on https://github.com/satos---jp/lambda_esolang
+
 # Setup
 1. install opam
 2. `$ opam switch create . && opam install .`
