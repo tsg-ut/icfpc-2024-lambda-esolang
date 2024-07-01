@@ -23,6 +23,8 @@ const baseUrl = 'https://boundvariable.space/communicate';
 const testcaseConfig: [string, number][] = [
   ['lambdaman', 21],
   ['spaceship', 25],
+  ['3d', 12],
+  ['efficiency', 13],
 ];
 
 const testcases = testcaseConfig.flatMap(([name, length]) => (
@@ -121,8 +123,8 @@ server.get('/testcases.html', async (request, reply) => {
 });
 
 server.post('/send', async (request, reply) => {
-  const { message } = request.body as any;
-  server.log.info(`Message received: ${message}`);
+  const { message, disableDecoding } = request.body as any;
+  server.log.info(`Message received: ${message} (disableDecoding: ${disableDecoding})`);
 
   const response = await fetch(baseUrl, {
     method: 'POST',
@@ -138,7 +140,12 @@ server.post('/send', async (request, reply) => {
   server.log.info(`Response: ${text}`);
 
   try {
-    const decodedPayload = decode(message);
+    let decodedPayload = '';
+    if (disableDecoding) {
+      decodedPayload = 'Skipped decoding';
+    } else {
+      decodedPayload = decode(message);
+    }
     let decodedResponse: string = '';
     if (decodedPayload.match(/^get efficiency\d+$/)) {
       decodedResponse = 'Skipped decoding';

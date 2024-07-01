@@ -7,6 +7,7 @@ const encodedSizeEl = document.getElementById('encoded-size');
 const sendToUniverseEl = document.getElementById('send-to-universe');
 const resultEl = document.getElementById('result');
 const decodedEl = document.getElementById('decoded');
+const disableDecodingEl = document.getElementById('disable-decoding');
 
 const permutation = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"#$%&\'()*+,-./:;<=>?@[\\]^_`|~ \n';
 
@@ -42,6 +43,10 @@ inputEl.addEventListener('input', () => {
 
 encodedEl.addEventListener('input', () => {
   const input = encodedEl.value;
+  const disableDecoding = disableDecodingEl.checked;
+  if (disableDecoding) {
+    return;
+  }
   encodedSizeEl.textContent = input.length;
   inputEl.value = decode(input);
   inputSizeEl.textContent = inputEl.value.length;
@@ -61,13 +66,17 @@ sendToUniverseEl.addEventListener('click', async () => {
   sendToUniverseEl.disabled = true;
 
   const encoded = encodedEl.value;
+  const disableDecoding = disableDecodingEl.checked;
 
   const req = await fetch('/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({message: encoded}),
+    body: JSON.stringify({
+      message: encoded,
+      disableDecoding,
+    }),
   });
 
   const response = await req.json();

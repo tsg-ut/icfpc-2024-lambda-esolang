@@ -223,7 +223,7 @@ interface HistoricalState {
 
 const pointEquals = (a: Point, b: Point): boolean => a.x === b.x && a.y === b.y;
 
-class Simulator {
+export class Simulator {
   board: Board;
   t: number;
   tick: number;
@@ -260,7 +260,13 @@ class Simulator {
       row.trim().split(/\s+/).map(cell => {
         if (cell === '.') return null;
         const intVal = parseInt(cell);
-        return Number.isNaN(intVal) ? cell : intVal;
+        if (!Number.isNaN(intVal)) {
+          return intVal;
+        }
+        if (cell.length !== 1) {
+          throw new Error(`Invalid cell: ${cell}`);
+        }
+        return cell;
       })
     );
   }
@@ -391,6 +397,14 @@ class Simulator {
     this.tick++;
 
     if (this.submitValue !== null) {
+      this.history.push(
+        {
+          board: JSON.parse(JSON.stringify(this.board)),
+          t: this.t,
+          tick: this.tick,
+          isBurnt: false,
+        }
+      );
       return this.submitValue;
     }
 
@@ -574,7 +588,7 @@ class Simulator {
     this.setCell(targetX, targetY, v);
   }
 
-  run(maxTicks: number = 1_000_000): number {
+  run(maxTicks: number = 10_000): number {
     console.log('Tick 1 (t = 1):');
     this.logBoard();
     
@@ -648,7 +662,7 @@ class Simulator {
   console.log(`Result: ${result}`);
 }
 
-{
+if (module === require.main) {
   const program = `
   . > . > . > . > .
   ^ . . . . . . . v

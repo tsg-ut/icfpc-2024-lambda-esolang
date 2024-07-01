@@ -16,6 +16,7 @@
     <li><a href="/base94.html">Base94 Tool</a></li>
     <li><strong>Testcases</strong></li>
     <li><a href="/runlength.html">Run-Length Encoding Tool</a></li>
+    <li><a href="/3d-sim.html">3d Simulator</a></li>
   </ul>
   <% if (caseName === null) { %>
     <h2>Testcases</h2>
@@ -28,6 +29,8 @@
     <h2>Testcase: <%= caseName %></h2>
     <details>
       <summary>Content</summary>
+      <input id="content" type="hidden" value="<%= content %>" />
+      <button class="copy-to-clipboard" data-copy-to-clipboard-target="content">Copy</button>
       <pre><%= content %></pre>
     </details>
     <h3>AC History</h3>

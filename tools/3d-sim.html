@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TSG ICFPC waiwai tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <link rel="stylesheet" href="app.css">
+  <script src="3d-sim.mjs" type="module" defer></script>
+  <style>
+    .board {
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 1.5rem;
+      display: inline-block;
+      margin: 0 auto;
+      flex-direction: column;
+    }
+    .row {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      background: white;
+    }
+    .cell {
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid #444;
+      color: #444;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    input {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <h1>TSG ICFPC waiwai tool</h1>
+  <ul>
+    <li><a href="/">Communication Tool</a></li>
+    <li><a href="/base94.html">Base94 Tool</a></li>
+    <li><a href="/testcases.html">Testcases</a></li>
+    <li><a href="/runlength.html">Run-Length Encoding Tool</a></li>
+    <li><strong>3d Simulator</strong></li>
+  </ul>
+  <div id="app">
+    <h2>3d simulator</h2>
+    <form>
+      <h3>Code</h3>
+      <textarea style="font-family: 'Menlo', monospace;" name="code" id="code" width="100%" rows="10" v-model="code"></textarea>
+      <p>
+        Input A: <input type="number" id="input-a" value="0" v-model="inputA" />
+        Input B: <input type="number" id="input-b" value="0" v-model="inputB" />
+        <button type="button" id="run" @click="run">Run</button>
+        Output: {{output}}
+      </p>
+      <p>{{errorMessage}}</p>
+      <div v-if="history.length > 0" style="text-align: center;">
+        <p style="font-size: 2em;">
+          <span>tick = {{board.tick}}</span>
+          /
+          <span>t = {{board.t}}</span>
+        </p>
+        <div class="board">
+          <div class="row" v-for="row, i in board.board" :key="i">
+            <div class="cell" v-for="cell, j in row" :key="j">
+              {{cell}}
+            </div>
+          </div>
+        </div>
+        <p>
+          <button :disabled="tick === 0" type="button" @click="backTick(10000)">-10000</button>
+          <button :disabled="tick === 0" type="button" @click="backTick(1000)">-1000</button>
+          <button :disabled="tick === 0" type="button" @click="backTick(100)">-100</button>
+          <button :disabled="tick === 0" type="button" @click="backTick(10)">-10</button>
+          <button :disabled="tick === 0" type="button" @click="backTick(1)">◀</button>
+          {{tick + 1}}
+          <button :disabled="tick === history.length - 1" type="button" @click="forwardTick(1)">▶</button>
+          <button :disabled="tick === history.length - 1" type="button" @click="forwardTick(10)">+10</button>
+          <button :disabled="tick === history.length - 1" type="button" @click="forwardTick(100)">+100</button>
+          <button :disabled="tick === history.length - 1" type="button" @click="forwardTick(1000)">+1000</button>
+          <button :disabled="tick === history.length - 1" type="button" @click="forwardTick(10000)">+10000</button>
+        </p>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

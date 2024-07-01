@@ -12,6 +12,7 @@
     }
   },
   "include": [
-    "interpreter.ts"
+    "interpreter.ts",
+    "3d-simulator.mts"
   ],
 }

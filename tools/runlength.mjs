@@ -1,11 +1,7 @@
 import {evaluate} from './interpreter.js';
 
-const inputEl = document.getElementById('input');
-const inputSizeEl = document.getElementById('input-size');
-const encodedEl = document.getElementById('encoded');
-const encodedSizeEl = document.getElementById('encoded-size');
-
 const runLengthDecoder = 'B$ B$ Lf B$ Lx B$ vf B$ vx vx Lx B$ vf B$ vx vx Lh La Ln ? B< vn I" va Lc ? B= vn I" B$ vh B. va vc B$ B$ B$ vh B. va vc B- vn I" vc S';
+const rludDecoder = 'B$ B$ L2 L3 B$ B$ v2 v2 v3 L0 L1 ? B> v1 I! B. BT I" BD B% v1 I% SFLO> B$ B$ v0 v0 B/ v1 I% S';
 const permutation = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"#$%&\'()*+,-./:;<=>?@[\\]^_`|~ \n';
 
 function encodeString(input) {
@@ -28,7 +24,7 @@ function encodeBase94(number) {
   return result === '' ? 'I!' : 'I' + result;
 }
 
-function runLengthEncode(str) {
+function runlengthTokensEncode(str) {
   let encoded = [];
   let count = 1;
   for (let i = 0; i < str.length; i++) {
@@ -63,8 +59,8 @@ function optimize(encoded) {
   return optimized;
 }
 
-function encode(input) {
-  const encoded = runLengthEncode(input);
+function runlengthEncode(input) {
+  const encoded = runlengthTokensEncode(input);
   const optimized = optimize(encoded);
 
   const tokens = [];
@@ -101,16 +97,108 @@ function decode(input) {
   }).join('');
 };
 
-inputEl.addEventListener('input', () => {
-  const input = inputEl.value;
-  inputSizeEl.textContent = input.length;
-  encodedEl.value = encode(input);
-  encodedSizeEl.textContent = encodedEl.value.length;
-});
+function rludBodyEncode(input) {
+  const reversedInput = Array.from(input).reverse();
 
-encodedEl.addEventListener('input', () => {
-  const input = encodedEl.value;
-  encodedSizeEl.textContent = input.length;
-  inputEl.value = decode(input);
-  inputSizeEl.textContent = inputEl.value.length;
-});
+  if (reversedInput[0] === 'L') {
+    return 'Input cannot end with `L`';
+  }
+
+  let acc = 0n;
+  for (const char of reversedInput) {
+    const n = 'LRUD'.indexOf(char);
+    if (n === -1) {
+      return `Invalid character: ${char}`;
+    }
+    acc = acc * 4n + BigInt(n);
+  }
+
+  return rludDecoder + ' ' + encodeBase94(acc);
+}
+
+function rludEncode(input) {
+  const tokens = [];
+
+  let acc = '';
+  let mode = 'LRUD'.includes(input[0]) ? 'lrud' : 'raw';
+
+  for (const char of Array.from(input)) {
+    if (mode === 'lrud') {
+      if ('LRUD'.includes(char)) {
+        acc += char;
+      } else {
+        const trailingLs = acc.match(/(L*)$/)[0];
+        tokens.push(rludBodyEncode(acc.slice(0, acc.length - trailingLs.length)));
+        mode = 'raw';
+        acc = trailingLs + char;
+      }
+    } else {
+      if ('LRUD'.includes(char)) {
+        tokens.push(encodeString(acc));
+        acc = char;
+        mode = 'lrud';
+      } else {
+        acc += char;
+      }
+    }
+  }
+
+  if (mode === 'lrud' && acc !== '') {
+    const trailingLs = acc.match(/(L*)$/)[0];
+    tokens.push(rludBodyEncode(acc.slice(0, acc.length - trailingLs.length)));
+    console.log(acc.slice(0, -trailingLs.length));
+    mode = 'raw';
+    acc = trailingLs;
+  }
+  if (mode === 'raw' && acc !== '') {
+    tokens.push(encodeString(acc));
+  }
+
+  return Array(tokens.length - 1).fill('B.').join(' ') + ' ' + tokens.join(' ');
+}
+
+{
+  const form = document.getElementById('runlength');
+
+  const inputEl = form.getElementsByClassName('input')[0];
+  const inputSizeEl = form.getElementsByClassName('input-size')[0];
+  const encodedEl = form.getElementsByClassName('encoded')[0];
+  const encodedSizeEl = form.getElementsByClassName('encoded-size')[0];
+
+  inputEl.addEventListener('input', () => {
+    const input = inputEl.value;
+    inputSizeEl.textContent = input.length;
+    encodedEl.value = runlengthEncode(input);
+    encodedSizeEl.textContent = encodedEl.value.length;
+  });
+
+  encodedEl.addEventListener('input', () => {
+    const input = encodedEl.value;
+    encodedSizeEl.textContent = input.length;
+    inputEl.value = decode(input);
+    inputSizeEl.textContent = inputEl.value.length;
+  });
+}
+
+{
+  const form = document.getElementById('rlud');
+
+  const inputEl = form.getElementsByClassName('input')[0];
+  const inputSizeEl = form.getElementsByClassName('input-size')[0];
+  const encodedEl = form.getElementsByClassName('encoded')[0];
+  const encodedSizeEl = form.getElementsByClassName('encoded-size')[0];
+
+  inputEl.addEventListener('input', () => {
+    const input = inputEl.value;
+    inputSizeEl.textContent = input.length;
+    encodedEl.value = rludEncode(input);
+    encodedSizeEl.textContent = encodedEl.value.length;
+  });
+
+  encodedEl.addEventListener('input', () => {
+    const input = encodedEl.value;
+    encodedSizeEl.textContent = input.length;
+    inputEl.value = decode(input);
+    inputSizeEl.textContent = inputEl.value.length;
+  });
+}
