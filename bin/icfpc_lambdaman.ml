@@ -99,7 +99,7 @@ let _ =
 
   let _ = parse in
   
-  let rand = R.make [| 314 |] in
+  let rand = R.make [| 31415 |] in
   let _random_walk ~rand =
     (* Your solution may consist of at most `1,000,000` characters. *)
     String.init 1_000_000 (fun _ -> 
@@ -107,13 +107,40 @@ let _ =
       String.get "LRUD" ci
     )
   in
+  let search_size = 100 in
   let random_walk_w_seed ~rand =
+    let mdiv, genfun = 
+    match !Args.problem_idx with
+      | 4 -> 
+          (* 1, fun x -> (1, String.sub "LRUD" (x mod 4) 1) *)
+          1, fun x -> (((x mod 8) + 1),String.sub "LURDDRUL" 0 ((x mod 8) + 1))
+          (* 1, fun x -> ((x mod 8),String.sub "LURDDRU" 0 (x mod 8)) *)
+      | 5 -> 
+          1, fun x -> (((x mod 7) + 1),String.sub "LURDDRU" 0 ((x mod 7) + 1))
+      | 13 ->
+          2, fun x -> (4, String.sub "LLUURRDDLL" ((x mod 4) * 2) 4)
+      | 20 ->
+          2, fun x -> (4, String.sub "LLUULLDDRRUURRDDLL" ((x mod 8) * 2) 4)
+      | _ -> Format.eprintf "Default: Lambda man setting@.";
+          1, fun x -> (1, String.sub "LRUD" (x mod 4) 1)
+    in
     (* Your solution may consist of at most `1,000,000` characters. *)
-    let st = R.int rand 100 in
-    let a = R.int rand 100 in
+    (* let st = R.int rand 100 in *)
+    let st = R.int rand (94/mdiv) in
+    let a = R.int rand 94 in
     (* let a = R.int 100000 in *)
-    let n = R.int rand 1_000_000_00 in
+    let n = R.int rand 1_000_00_00 in
+    (* let n = R.int rand ((94 * 94 * 94)/mdiv) in *)
+    if n = 0 then ("","") else
     (* let gone = Array.make (n+10) false in *)
+
+    let minb = ref (-1) in
+    let minbl = ref (-1) in
+    let minb2 = ref (-1) in
+    let minbl2 = ref (-1) in
+    let minb3 = ref (-1) in
+    let minbl3 = ref (-1) in
+
     let rec aux x ls acc =
       let tx = (x * a) mod n in
       let is_gone =
@@ -123,12 +150,41 @@ let _ =
             false
           end *)
       in
+      let ns, s = genfun x in
       let ci = x mod 4 in
       let _ = ci in
-      (* let s = String.sub "LRUD" 0 (4-ci) in *)
+      (* let ns, s = ci+1, String.sub "LURD" 0 (ci+1) in *)
       (* let s = String.sub "LRUD" ci (4-ci) in *)
       (* let ns,s = 1, String.sub "LRUD" ci 1 in *)
-      let ns,s = 1, String.sub "LURD" (x mod 4) 1 in
+      (* let ns,s = 1, String.sub "LURD" (x mod 4) 1 in *)
+      (* let ns,s = 2, String.sub "LLUURRDD" ((x mod 4) * 2) 2 in *)
+      (* let ns,s = 4, (List.nth [
+        "LLUU";
+        "LLDD";
+        "RRUU";
+        "RRDD";
+        "UULL";
+        "UURR";
+        "DDLL";
+        "DDRR"
+       ] (x mod 8))  in *)
+
+      (* let ns,s = 4, String.sub "LLUULLDDRRUURRDDLL" ((x mod 8) * 2) 4 in *)
+      (* let ns,s = 2, String.sub "LULDRURDL" (x mod 8) 2 in *)
+
+      (* let ns,s = 4, String.sub "LLUULLDDRRUURR" ((x mod 6) * 2) 4 in *)
+      (* let ns,s = 4, String.sub "LLUULLDDRRUURRDDLL" (x mod 15) 4 in *)
+      (* let ns,s = 4, String.sub "LLLLUUUURRRRDDDDLLLL" (x mod 15) 4 in *)
+      (* let ns,s = 4, String.sub "LLLLUUUURRRRDDDDLLLL" ((x mod 8) * 2) 2 in *)
+      (* let ns,s = 2, String.sub "LLUURRDDLL" (x mod 8) 2 in *)
+      (* let ns,s = 3, String.sub "LLLUUURRRDDDLLL" (x mod 12) 3 in *)
+      (* let ns,s =
+        if x mod 8 > 3 then
+          1, String.sub "LURD" (x mod 4) 1
+        else
+          (* 2, String.sub "LLLUUURRRDDD" ((x mod 4) * 3) 3  *)
+          2, String.sub "LLUURRDD" ((x mod 4) * 2) 2
+      in *)
       (* let ns,s = 5, String.sub "LURD" (x mod 4) 1 ^ "LRUD" in *)
       (* let ns,s = 9, String.sub "LURD" (x mod 4) 1 ^ "LRRLUDDU" in *)
       (* let ns,s = 1, (x mod 4) in *)
@@ -156,16 +212,44 @@ let _ =
         Format.eprintf "Fin concat %d %d / %d %d@." un dn ln rn; *)
 
         let ml = (min (String.length rs) 10) in 
-        (rs, Format.sprintf "(%d,%d,%d -> %d / %s(len %d))"
-          st a n x (String.sub rs (String.length rs - ml) ml) ls)
-      end else
+        (rs, Format.sprintf "Maze%d(%d,%d,%d -> %d / %s(len %d)(b %d / bl %d)(b2 %d / l2 %d)(b3 %d / bl3 %d))"
+          mdiv
+          (st*mdiv) a (n*mdiv) (x*mdiv) 
+          (String.sub rs (String.length rs - ml) ml) ls 
+          (!minb*mdiv) !minbl (!minb2*mdiv) !minbl2 (!minb3*mdiv) !minbl3)
+
+        (* (rs, Format.sprintf "(%d,%d,%d -> %d / %s(len %d)(b %d / bl %d)(b2 %d / l2 %d)(b3 %d / bl3 %d))"
+          st a n x (String.sub rs (String.length rs - ml) ml) ls !minb !minbl !minb2 !minbl2 !minb3 !minbl3) *)
+      end else begin
+        (
+          (* if tx < 94 then begin  *)
+          if tx < (94/mdiv) then begin
+            minb := tx;
+            minbl := tls
+          end
+        );
+        (
+          (* if tx < 94 then begin  *)
+          if tx < (94*94/mdiv) then begin
+            minb2 := tx;
+            minbl2 := tls
+          end
+        );
+        (
+          (* if tx < 94 then begin  *)
+          if tx < (94*94*94/mdiv) then begin
+            minb3 := tx;
+            minbl3 := tls
+          end
+        );
         aux tx tls ts
+      end
     in
       aux st 0 []
   in
   let res = 
     let r = ref [] in
-    for _ = 1 to 100; do
+    for _ = 1 to search_size; do
       let s,ps = random_walk_w_seed ~rand in
       let ts = s in
       (* Format.eprintf "%s@." (String.sub ts 0 10); *)
@@ -178,6 +262,86 @@ let _ =
     !r
   in
   
+  (* Lam 19 *)
+  (* let lam_19 () =
+    let dup n d =
+      String.make n (String.get "LURD" (d mod 4))
+    in
+    let rec gen n =
+      if n = 0 then "" else
+      let rec aux i =
+        if i = 0 then "" else
+        (dup n i) ^
+        gen (n/2) ^
+        (dup n (i+2)) ^
+        aux (i-1)
+      in
+        aux 4
+    in
+      let res = gen 1024 in
+      (res,"gen19")
+  in
+  let res = [
+    let s,ps = lam_19 () in
+    let ts = s in
+    (* Format.eprintf "%s@." (String.sub ts 0 10); *)
+    (* let ts = String.concat "" (List.init 1 (fun _ -> s)) in *)
+    let (cnt,all) = Problem.check_string problem ts in
+    let d = (ps,cnt,all) in
+    d
+  ] in *)
+  
+  (* Lam 20 *)
+  (* let lam_20 () =
+    let dup d n =
+      String.make n (String.get "URDL" ((d + 10000) mod 4))
+    in
+    let rec gen i n =
+      if n = 0 then "" else
+      (dup i n) ^
+      (gen (i+3) (n/4)) ^ 
+      (dup i n) ^
+      (gen (i-1) (n/2)) ^ 
+      (dup (i+1) 1) ^
+      (gen i (n/2)) ^ 
+      (dup (i+2) 1) ^
+      (gen (i+1) (n/2)) ^ 
+      (dup (i+3) 1) ^
+
+      (dup (i+2) (n-1)) ^
+      (
+        if n > 1 then begin
+          (dup (i+1) 1) ^
+          (gen (i+1) (n/4)) ^ 
+          (dup (i+3) 1) ^
+          ""
+        end else ""
+      ) ^
+
+      (dup (i+2) n)
+    in
+      let res = begin
+        (gen 0 32) ^
+        dup 2 1 ^
+        (gen 1 32) ^
+        dup 3 1 ^
+        (gen 2 32) ^
+        dup 0 1 ^
+        (gen 3 32) ^
+        dup 1 1 ^
+        ""
+      end in
+      (res,"gen20")
+  in
+  let res = [
+    let s,ps = lam_20 () in
+    let ts = s in
+    (* Format.eprintf "%s@." (String.sub ts 0 10); *)
+    (* let ts = String.concat "" (List.init 1 (fun _ -> s)) in *)
+    let (cnt,all) = Problem.check_string problem ts in
+    let d = (ps,cnt,all) in
+    d
+  ] in *)
   let res = List.sort (fun (_,c1,_) (_,c2,_) -> Int.compare c1 c2) res |> List.rev in
   let res = List.filteri (fun i _ -> i < 10) res in
   List.iter (fun (s,cnt,all) ->
