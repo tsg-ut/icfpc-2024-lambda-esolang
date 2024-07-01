@@ -1,3 +1,4 @@
 node_modules
 .env
 3d-simulator.mjs
+.node-persist
