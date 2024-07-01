@@ -717,7 +717,7 @@ module Icfpc = struct
       if i = Z.zero then ""
       else aux (i / z94) ^ String.make 1 (chrz @@ ((i mod z94) + zcode '!'))
     in
-    aux
+    fun i -> if i = Z.zero then "!" else aux i
 
   let read2s =
     let table =
